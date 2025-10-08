@@ -181,24 +181,25 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
       setError(null);
 
       // Preparar dados para o backend
+      // IMPORTANTE: Verifica se o campo é !== undefined para permitir limpar campos (null, '', [])
       const payload: any = {};
       
-      if (data.type) payload.type = data.type;
+      if (data.type !== undefined) payload.type = data.type;
       if (data.amount !== undefined) payload.amount = data.amount;
-      if (data.categoryId) payload.categoryId = data.categoryId;
-      if (data.category) payload.category = data.category;
-      if (data.description) payload.description = data.description;
-      if (data.date) payload.date = data.date;
-      if (data.paymentMethod) payload.paymentMethod = data.paymentMethod;
-      if (data.status) payload.status = data.status;
-      if (data.projectId) payload.projectId = data.projectId;
-      if (data.projectTitle) payload.projectTitle = data.projectTitle;
-      if (data.clientId) payload.clientId = data.clientId;
-      if (data.clientName) payload.clientName = data.clientName;
-      if (data.tags) payload.tags = data.tags;
+      if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
+      if (data.category !== undefined) payload.category = data.category;
+      if (data.description !== undefined) payload.description = data.description;
+      if (data.date !== undefined) payload.date = data.date;
+      if (data.paymentMethod !== undefined) payload.paymentMethod = data.paymentMethod;
+      if (data.status !== undefined) payload.status = data.status;
+      if (data.projectId !== undefined) payload.projectId = data.projectId;
+      if (data.projectTitle !== undefined) payload.projectTitle = data.projectTitle;
+      if (data.clientId !== undefined) payload.clientId = data.clientId;
+      if (data.clientName !== undefined) payload.clientName = data.clientName;
+      if (data.tags !== undefined) payload.tags = data.tags;
       if (data.notes !== undefined) payload.notes = data.notes;
       if (data.isRecurring !== undefined) payload.isRecurring = data.isRecurring;
-      if (data.recurringFrequency) payload.recurringFrequency = data.recurringFrequency;
+      if (data.recurringFrequency !== undefined) payload.recurringFrequency = data.recurringFrequency;
 
       console.log('[useTransactions] Updating transaction:', id, payload);
 

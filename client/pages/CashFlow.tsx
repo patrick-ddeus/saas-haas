@@ -31,7 +31,7 @@
  * Versão: 2.0 - Totalmente Funcional
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,142 +78,28 @@ import { TransactionsTable } from '@/components/CashFlow/TransactionsTable';
 import { TransactionViewDialog } from '@/components/CashFlow/TransactionViewDialog';
 import { Transaction, TransactionStatus, PaymentMethod } from '@/types/cashflow';
 import { Badge } from '@/components/ui/badge';
+import { useTransactions } from '@/hooks/useTransactions';
 
-/**
- * DADOS MOCK PARA DEMONSTRAÇÃO
- * ============================
- *
- * IMPORTANTE: Em produção, estes dados serão substituídos por:
- * - API calls para o backend
- * - Integração com banco de dados
- * - Sincronização em tempo real
- * - Cache para performance
- *
- * BACKEND ENDPOINTS NECESSÁRIOS:
- * - GET /api/transactions - Lista de transações com filtros
- * - POST /api/transactions - Criar nova transação
- * - PUT /api/transactions/:id - Atualizar transação
- * - DELETE /api/transactions/:id - Deletar transação
- * - GET /api/transactions/stats - Estatísticas do fluxo de caixa
- * - GET /api/transactions/export - Exportar CSV
- * - GET /api/transactions/categories - Categorias disponíveis
- */
-const mockTransactions: Transaction[] = [
-  {
-    id: '1',
-    type: 'income',
-    amount: 5500.00,
-    category: '⚖️ Honorários advocatícios',
-    categoryId: 'honorarios',
-    description: 'Honorários - Ação Previdenciária João Santos',
-    date: '2024-01-15T00:00:00Z',
-    paymentMethod: 'pix',
-    status: 'confirmed',
-    tags: ['Previdenciário', 'João Santos', 'INSS'],
-    attachments: [],
-    projectId: '1',
-    projectTitle: 'Ação Previdenciária - João Santos',
-    clientId: '1',
-    clientName: 'João Santos',
-    isRecurring: false,
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-15T10:00:00Z',
-    createdBy: 'Dr. Silva',
-    lastModifiedBy: 'Dr. Silva',
-    notes: 'Pagamento recebido via PIX. Cliente satisfeito com resultado.',
-  },
-  {
-    id: '2',
-    type: 'expense',
-    amount: 3200.00,
-    category: '👥 Salários e encargos trabalhistas',
-    categoryId: 'salarios',
-    description: 'Salário Janeiro 2024 - Ana Paralegal',
-    date: '2024-01-05T00:00:00Z',
-    paymentMethod: 'bank_transfer',
-    status: 'confirmed',
-    tags: ['Folha de Pagamento', 'Ana', 'Janeiro'],
-    attachments: [],
-    isRecurring: true,
-    recurringFrequency: 'monthly',
-    createdAt: '2024-01-05T09:00:00Z',
-    updatedAt: '2024-01-05T09:00:00Z',
-    createdBy: 'Dr. Silva',
-    lastModifiedBy: 'Dr. Silva',
-    notes: 'Pagamento mensal recorrente. Próximo: 05/02/2024.',
-  },
-  {
-    id: '3',
-    type: 'income',
-    amount: 8500.00,
-    category: '📋 Consultorias jurídicas',
-    categoryId: 'consultorias',
-    description: 'Consultoria Empresarial - Tech LTDA',
-    date: '2024-01-20T00:00:00Z',
-    paymentMethod: 'credit_card',
-    status: 'confirmed',
-    tags: ['Empresarial', 'Tech LTDA', 'Consultoria'],
-    attachments: [],
-    projectId: '3',
-    projectTitle: 'Recuperação Judicial - Tech LTDA',
-    clientId: '3',
-    clientName: 'Tech LTDA',
-    isRecurring: false,
-    createdAt: '2024-01-20T14:30:00Z',
-    updatedAt: '2024-01-20T14:30:00Z',
-    createdBy: 'Dra. Costa',
-    lastModifiedBy: 'Dra. Costa',
-    notes: 'Consultoria para recuperação judicial. Pagamento parcelado em 3x.',
-  },
-  {
-    id: '4',
-    type: 'expense',
-    amount: 1800.00,
-    category: '🏢 Aluguel / condomínio',
-    categoryId: 'aluguel',
-    description: 'Aluguel escritório Janeiro 2024',
-    date: '2024-01-10T00:00:00Z',
-    paymentMethod: 'bank_transfer',
-    status: 'confirmed',
-    tags: ['Aluguel', 'Escritório', 'Janeiro'],
-    attachments: [],
-    isRecurring: true,
-    recurringFrequency: 'monthly',
-    createdAt: '2024-01-10T08:00:00Z',
-    updatedAt: '2024-01-10T08:00:00Z',
-    createdBy: 'Dra. Costa',
-    lastModifiedBy: 'Dra. Costa',
-    notes: 'Aluguel mensal do escritório. Vencimento todo dia 10.',
-  },
-  {
-    id: '5',
-    type: 'expense',
-    amount: 450.00,
-    category: '⚡ Contas (água, luz, internet)',
-    categoryId: 'contas',
-    description: 'Conta de luz Janeiro 2024',
-    date: '2024-01-12T00:00:00Z',
-    paymentMethod: 'boleto',
-    status: 'pending',
-    tags: ['Conta de Luz', 'Janeiro', 'Escritório'],
-    attachments: [],
-    isRecurring: false,
-    createdAt: '2024-01-12T16:45:00Z',
-    updatedAt: '2024-01-12T16:45:00Z',
-    createdBy: 'Ana Paralegal',
-    lastModifiedBy: 'Ana Paralegal',
-    notes: 'Aguardando confirmação do pagamento.',
-  },
-];
+// Mock transactions removed - using real data from useTransactions hook
 
 export function CashFlow() {
+  // Hook de transações - substitui os dados mock
+  const {
+    transactions,
+    isLoading: transactionsLoading,
+    error: transactionsError,
+    createTransaction: createTransactionApi,
+    updateTransaction: updateTransactionApi,
+    deleteTransaction: deleteTransactionApi,
+    refreshTransactions
+  } = useTransactions({ autoLoad: true, limit: 100 });
+
   // Estados principais do componente
   const [activeTab, setActiveTab] = useState('all');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showTransactionView, setShowTransactionView] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -371,7 +257,7 @@ export function CashFlow() {
     console.log('Transação copiada:', copiedTransaction);
   };
 
-  const handleSubmitTransaction = (data: any) => {
+  const handleSubmitTransaction = async (data: any) => {
     console.log('Submetendo transação:', data);
 
     try {
@@ -379,33 +265,14 @@ export function CashFlow() {
         // Editando transação existente
         console.log('Atualizando transação existente:', editingTransaction.id);
         
-        setTransactions(transactions.map(transaction =>
-          transaction.id === editingTransaction.id
-            ? {
-                ...transaction,
-                ...data,
-                updatedAt: new Date().toISOString(),
-                lastModifiedBy: 'Usuário Atual', // Em produção: pegar do contexto de auth
-              }
-            : transaction
-        ));
+        await updateTransactionApi(editingTransaction.id, data);
 
         alert('✅ Transação atualizada com sucesso!');
       } else {
         // Criando nova transação
         console.log('Criando nova transação');
 
-        const newTransaction: Transaction = {
-          ...data,
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          createdBy: 'Usuário Atual', // Em produção: pegar do contexto de auth
-          lastModifiedBy: 'Usuário Atual',
-          attachments: [],
-        };
-
-        setTransactions([newTransaction, ...transactions]);
+        await createTransactionApi(data);
 
         // Feedback específico para tipo de transação
         if (data.isRecurring) {
@@ -433,14 +300,19 @@ export function CashFlow() {
     setShowTransactionForm(true);
   };
 
-  const handleDeleteTransaction = (transactionId: string) => {
+  const handleDeleteTransaction = async (transactionId: string) => {
     console.log('Deletando transação:', transactionId);
     
     if (confirm('Tem certeza que deseja excluir esta transação?')) {
-      setTransactions(transactions.filter(t => t.id !== transactionId));
-      setSelectedTransactions(selectedTransactions.filter(id => id !== transactionId));
-      
-      alert('✅ Transação excluída com sucesso!');
+      try {
+        await deleteTransactionApi(transactionId);
+        setSelectedTransactions(selectedTransactions.filter(id => id !== transactionId));
+        
+        alert('✅ Transação excluída com sucesso!');
+      } catch (error) {
+        console.error('Erro ao deletar transação:', error);
+        alert('❌ Erro ao excluir transação. Tente novamente.');
+      }
     }
   };
 
