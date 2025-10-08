@@ -169,14 +169,14 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
 
       // Verificar se o plano do tenant expirou
       if (tenant.planExpiresAt) {
-        const expirationDate = new Date(tenant.planExpiresAt);
         const now = new Date();
+        const expiresAt = new Date(tenant.planExpiresAt);
 
-        if (expirationDate < now) {
-          return res.status(403).json({
-            error: 'Plano expirado',
-            message: 'O plano da sua conta expirou. Entre em contato com o suporte para renovar.',
-            expirationDate: expirationDate.toISOString(),
+        if (now > expiresAt) {
+          return res.status(403).json({ 
+            error: 'Tenant plan has expired',
+            message: 'Seu plano expirou. Entre em contato com o administrador para renovar.',
+            expiresAt: tenant.planExpiresAt
           });
         }
       }

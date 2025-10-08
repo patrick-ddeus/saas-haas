@@ -1,8 +1,8 @@
 -- AlterTable
-ALTER TABLE "tenants" ADD COLUMN     "plan_expires_at" TIMESTAMP(3);
+ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "plan_expires_at" TIMESTAMP(3);
 
--- CreateTable
-CREATE TABLE "clients" (
+-- CreateTable - CLIENTS (sem conflito)
+CREATE TABLE IF NOT EXISTS "clients" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "organization" TEXT,
@@ -38,37 +38,33 @@ CREATE TABLE "clients" (
     CONSTRAINT "clients_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "projects" (
-    "id" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "description" TEXT,
-    "client_id" TEXT,
-    "client_name" TEXT NOT NULL,
-    "organization" TEXT,
-    "address" TEXT,
-    "budget" DECIMAL(15,2),
-    "currency" TEXT NOT NULL DEFAULT 'BRL',
-    "status" TEXT NOT NULL DEFAULT 'contacted',
-    "priority" TEXT NOT NULL DEFAULT 'medium',
-    "progress" INTEGER NOT NULL DEFAULT 0,
-    "start_date" DATE,
-    "due_date" DATE,
-    "completed_at" TIMESTAMP(3),
-    "tags" JSONB NOT NULL DEFAULT '[]',
-    "assigned_to" JSONB NOT NULL DEFAULT '[]',
-    "notes" TEXT,
-    "contacts" JSONB NOT NULL DEFAULT '[]',
-    "created_by" TEXT NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+-- NOTA: Tabela 'projects' JÁ EXISTE da migration 20250102000000_add_projects_pipeline
+-- Apenas garantir que tenha as colunas necessárias
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "title" TEXT NOT NULL;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "description" TEXT;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "client_id" TEXT;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "client_name" TEXT NOT NULL;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "organization" TEXT;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "budget" DECIMAL(15,2);
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "currency" TEXT NOT NULL DEFAULT 'BRL';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'contacted';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "priority" TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "progress" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "start_date" DATE;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "due_date" DATE;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "completed_at" TIMESTAMP(3);
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "tags" JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "assigned_to" JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "notes" TEXT;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "contacts" JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "created_by" TEXT NOT NULL;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP(3) NOT NULL;
 
-    CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "tasks" (
+-- CreateTable - TASKS
+CREATE TABLE IF NOT EXISTS "tasks" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
@@ -96,8 +92,8 @@ CREATE TABLE "tasks" (
     CONSTRAINT "tasks_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "transactions" (
+-- CreateTable - TRANSACTIONS
+CREATE TABLE IF NOT EXISTS "transactions" (
     "id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "amount" DECIMAL(15,2) NOT NULL,
@@ -124,8 +120,8 @@ CREATE TABLE "transactions" (
     CONSTRAINT "transactions_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "invoices" (
+-- CreateTable - INVOICES
+CREATE TABLE IF NOT EXISTS "invoices" (
     "id" TEXT NOT NULL,
     "number" TEXT NOT NULL,
     "title" TEXT NOT NULL,
@@ -166,8 +162,8 @@ CREATE TABLE "invoices" (
     CONSTRAINT "invoices_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "publications" (
+-- CreateTable - PUBLICATIONS
+CREATE TABLE IF NOT EXISTS "publications" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "oab_number" TEXT NOT NULL,
@@ -195,8 +191,8 @@ CREATE TABLE "publications" (
     CONSTRAINT "publications_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "categories" (
+-- CreateTable - CATEGORIES
+CREATE TABLE IF NOT EXISTS "categories" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -212,8 +208,8 @@ CREATE TABLE "categories" (
     CONSTRAINT "categories_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "notifications" (
+-- CreateTable - NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS "notifications" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "actor_id" TEXT,
@@ -232,8 +228,8 @@ CREATE TABLE "notifications" (
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "dashboard_metrics" (
+-- CreateTable - DASHBOARD_METRICS
+CREATE TABLE IF NOT EXISTS "dashboard_metrics" (
     "id" TEXT NOT NULL,
     "metric_name" TEXT NOT NULL,
     "metric_value" DECIMAL(15,2),
@@ -246,8 +242,8 @@ CREATE TABLE "dashboard_metrics" (
     CONSTRAINT "dashboard_metrics_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "attachments" (
+-- CreateTable - ATTACHMENTS
+CREATE TABLE IF NOT EXISTS "attachments" (
     "id" TEXT NOT NULL,
     "entity_type" TEXT NOT NULL,
     "entity_id" TEXT NOT NULL,
@@ -263,208 +259,125 @@ CREATE TABLE "attachments" (
 );
 
 -- CreateIndex
-CREATE INDEX "idx_clients_name" ON "clients"("name");
-
--- CreateIndex
-CREATE INDEX "idx_clients_email" ON "clients"("email");
-
--- CreateIndex
-CREATE INDEX "idx_clients_status" ON "clients"("status");
-
--- CreateIndex
-CREATE INDEX "idx_clients_cpf" ON "clients"("cpf");
-
--- CreateIndex
-CREATE INDEX "idx_clients_active" ON "clients"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_clients_phone" ON "clients"("phone");
-
--- CreateIndex
-CREATE INDEX "idx_clients_created_by" ON "clients"("created_by");
-
--- CreateIndex
-CREATE INDEX "idx_projects_title" ON "projects"("title");
-
--- CreateIndex
-CREATE INDEX "idx_projects_status" ON "projects"("status");
-
--- CreateIndex
-CREATE INDEX "idx_projects_client_id" ON "projects"("client_id");
-
--- CreateIndex
-CREATE INDEX "idx_projects_priority" ON "projects"("priority");
-
--- CreateIndex
-CREATE INDEX "idx_projects_created_by" ON "projects"("created_by");
-
--- CreateIndex
-CREATE INDEX "idx_projects_active" ON "projects"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_tasks_status" ON "tasks"("status");
-
--- CreateIndex
-CREATE INDEX "idx_tasks_assigned_to" ON "tasks"("assigned_to");
-
--- CreateIndex
-CREATE INDEX "idx_tasks_project_id" ON "tasks"("project_id");
-
--- CreateIndex
-CREATE INDEX "idx_tasks_client_id" ON "tasks"("client_id");
-
--- CreateIndex
-CREATE INDEX "idx_tasks_priority" ON "tasks"("priority");
-
--- CreateIndex
-CREATE INDEX "idx_tasks_active" ON "tasks"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_type" ON "transactions"("type");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_date" ON "transactions"("date");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_category_id" ON "transactions"("category_id");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_status" ON "transactions"("status");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_project_id" ON "transactions"("project_id");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_client_id" ON "transactions"("client_id");
-
--- CreateIndex
-CREATE INDEX "idx_transactions_active" ON "transactions"("is_active");
-
--- CreateIndex
-CREATE UNIQUE INDEX "invoices_number_key" ON "invoices"("number");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_number" ON "invoices"("number");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_status" ON "invoices"("status");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_due_date" ON "invoices"("due_date");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_client_id" ON "invoices"("client_id");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_project_id" ON "invoices"("project_id");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_payment_status" ON "invoices"("payment_status");
-
--- CreateIndex
-CREATE INDEX "idx_invoices_active" ON "invoices"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_publications_user_id" ON "publications"("user_id");
-
--- CreateIndex
-CREATE INDEX "idx_publications_status" ON "publications"("status");
-
--- CreateIndex
-CREATE INDEX "idx_publications_date" ON "publications"("publication_date");
-
--- CreateIndex
-CREATE INDEX "idx_publications_oab" ON "publications"("oab_number");
-
--- CreateIndex
-CREATE INDEX "idx_publications_process" ON "publications"("process_number");
-
--- CreateIndex
-CREATE INDEX "idx_publications_responsavel" ON "publications"("responsavel");
-
--- CreateIndex
-CREATE INDEX "idx_publications_urgencia" ON "publications"("urgencia");
-
--- CreateIndex
-CREATE INDEX "idx_publications_active" ON "publications"("is_active");
-
--- CreateIndex
-CREATE UNIQUE INDEX "publications_user_id_external_id_key" ON "publications"("user_id", "external_id");
-
--- CreateIndex
-CREATE INDEX "idx_categories_type" ON "categories"("type");
-
--- CreateIndex
-CREATE INDEX "idx_categories_parent" ON "categories"("parent_id");
-
--- CreateIndex
-CREATE INDEX "idx_categories_active" ON "categories"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_notifications_user_id" ON "notifications"("user_id");
-
--- CreateIndex
-CREATE INDEX "idx_notifications_read" ON "notifications"("read");
-
--- CreateIndex
-CREATE INDEX "idx_notifications_type" ON "notifications"("type");
-
--- CreateIndex
-CREATE INDEX "idx_notifications_created_at" ON "notifications"("created_at" DESC);
-
--- CreateIndex
-CREATE INDEX "idx_notifications_active" ON "notifications"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_dashboard_metrics_name" ON "dashboard_metrics"("metric_name");
-
--- CreateIndex
-CREATE INDEX "idx_dashboard_metrics_period" ON "dashboard_metrics"("period_start", "period_end");
-
--- CreateIndex
-CREATE INDEX "idx_attachments_entity" ON "attachments"("entity_type", "entity_id");
-
--- CreateIndex
-CREATE INDEX "idx_attachments_uploaded_by" ON "attachments"("uploaded_by");
-
--- CreateIndex
-CREATE INDEX "idx_attachments_active" ON "attachments"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_tenants_active" ON "tenants"("is_active");
-
--- CreateIndex
-CREATE INDEX "idx_tenants_plan" ON "tenants"("plan_type");
-
--- CreateIndex
-CREATE INDEX "idx_users_tenant" ON "users"("tenant_id");
-
--- CreateIndex
-CREATE INDEX "idx_users_email" ON "users"("email");
-
--- CreateIndex
-CREATE INDEX "idx_users_active" ON "users"("is_active");
-
--- AddForeignKey
-ALTER TABLE "projects" ADD CONSTRAINT "projects_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "tasks" ADD CONSTRAINT "tasks_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "tasks" ADD CONSTRAINT "tasks_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "transactions" ADD CONSTRAINT "transactions_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "transactions" ADD CONSTRAINT "transactions_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "categories" ADD CONSTRAINT "categories_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE INDEX IF NOT EXISTS "idx_clients_name" ON "clients"("name");
+CREATE INDEX IF NOT EXISTS "idx_clients_email" ON "clients"("email");
+CREATE INDEX IF NOT EXISTS "idx_clients_status" ON "clients"("status");
+CREATE INDEX IF NOT EXISTS "idx_clients_cpf" ON "clients"("cpf");
+CREATE INDEX IF NOT EXISTS "idx_clients_active" ON "clients"("is_active");
+CREATE INDEX IF NOT EXISTS "idx_clients_phone" ON "clients"("phone");
+CREATE INDEX IF NOT EXISTS "idx_clients_created_by" ON "clients"("created_by");
+
+CREATE INDEX IF NOT EXISTS "idx_projects_title" ON "projects"("title");
+CREATE INDEX IF NOT EXISTS "idx_projects_status" ON "projects"("status");
+CREATE INDEX IF NOT EXISTS "idx_projects_client_id" ON "projects"("client_id");
+CREATE INDEX IF NOT EXISTS "idx_projects_priority" ON "projects"("priority");
+CREATE INDEX IF NOT EXISTS "idx_projects_created_by" ON "projects"("created_by");
+CREATE INDEX IF NOT EXISTS "idx_projects_active" ON "projects"("is_active");
+
+CREATE INDEX IF NOT EXISTS "idx_tasks_status" ON "tasks"("status");
+CREATE INDEX IF NOT EXISTS "idx_tasks_assigned_to" ON "tasks"("assigned_to");
+CREATE INDEX IF NOT EXISTS "idx_tasks_project_id" ON "tasks"("project_id");
+CREATE INDEX IF NOT EXISTS "idx_tasks_client_id" ON "tasks"("client_id");
+CREATE INDEX IF NOT EXISTS "idx_tasks_priority" ON "tasks"("priority");
+CREATE INDEX IF NOT EXISTS "idx_tasks_active" ON "tasks"("is_active");
+
+CREATE INDEX IF NOT EXISTS "idx_transactions_type" ON "transactions"("type");
+CREATE INDEX IF NOT EXISTS "idx_transactions_date" ON "transactions"("date");
+CREATE INDEX IF NOT EXISTS "idx_transactions_category_id" ON "transactions"("category_id");
+CREATE INDEX IF NOT EXISTS "idx_transactions_status" ON "transactions"("status");
+CREATE INDEX IF NOT EXISTS "idx_transactions_project_id" ON "transactions"("project_id");
+CREATE INDEX IF NOT EXISTS "idx_transactions_client_id" ON "transactions"("client_id");
+CREATE INDEX IF NOT EXISTS "idx_transactions_active" ON "transactions"("is_active");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "invoices_number_key" ON "invoices"("number");
+CREATE INDEX IF NOT EXISTS "idx_invoices_number" ON "invoices"("number");
+CREATE INDEX IF NOT EXISTS "idx_invoices_status" ON "invoices"("status");
+CREATE INDEX IF NOT EXISTS "idx_invoices_due_date" ON "invoices"("due_date");
+CREATE INDEX IF NOT EXISTS "idx_invoices_client_id" ON "invoices"("client_id");
+CREATE INDEX IF NOT EXISTS "idx_invoices_project_id" ON "invoices"("project_id");
+CREATE INDEX IF NOT EXISTS "idx_invoices_payment_status" ON "invoices"("payment_status");
+CREATE INDEX IF NOT EXISTS "idx_invoices_active" ON "invoices"("is_active");
+
+CREATE INDEX IF NOT EXISTS "idx_publications_user_id" ON "publications"("user_id");
+CREATE INDEX IF NOT EXISTS "idx_publications_status" ON "publications"("status");
+CREATE INDEX IF NOT EXISTS "idx_publications_date" ON "publications"("publication_date");
+CREATE INDEX IF NOT EXISTS "idx_publications_oab" ON "publications"("oab_number");
+CREATE INDEX IF NOT EXISTS "idx_publications_process" ON "publications"("process_number");
+CREATE INDEX IF NOT EXISTS "idx_publications_responsavel" ON "publications"("responsavel");
+CREATE INDEX IF NOT EXISTS "idx_publications_urgencia" ON "publications"("urgencia");
+CREATE INDEX IF NOT EXISTS "idx_publications_active" ON "publications"("is_active");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "publications_user_id_external_id_key" ON "publications"("user_id", "external_id");
+
+CREATE INDEX IF NOT EXISTS "idx_categories_type" ON "categories"("type");
+CREATE INDEX IF NOT EXISTS "idx_categories_parent" ON "categories"("parent_id");
+CREATE INDEX IF NOT EXISTS "idx_categories_active" ON "categories"("is_active");
+
+CREATE INDEX IF NOT EXISTS "idx_notifications_user_id" ON "notifications"("user_id");
+CREATE INDEX IF NOT EXISTS "idx_notifications_read" ON "notifications"("read");
+CREATE INDEX IF NOT EXISTS "idx_notifications_type" ON "notifications"("type");
+CREATE INDEX IF NOT EXISTS "idx_notifications_created_at" ON "notifications"("created_at" DESC);
+CREATE INDEX IF NOT EXISTS "idx_notifications_active" ON "notifications"("is_active");
+
+CREATE INDEX IF NOT EXISTS "idx_dashboard_metrics_name" ON "dashboard_metrics"("metric_name");
+CREATE INDEX IF NOT EXISTS "idx_dashboard_metrics_period" ON "dashboard_metrics"("period_start", "period_end");
+
+CREATE INDEX IF NOT EXISTS "idx_attachments_entity" ON "attachments"("entity_type", "entity_id");
+CREATE INDEX IF NOT EXISTS "idx_attachments_uploaded_by" ON "attachments"("uploaded_by");
+CREATE INDEX IF NOT EXISTS "idx_attachments_active" ON "attachments"("is_active");
+
+CREATE INDEX IF NOT EXISTS "idx_tenants_active" ON "tenants"("is_active");
+CREATE INDEX IF NOT EXISTS "idx_tenants_plan" ON "tenants"("plan_type");
+
+CREATE INDEX IF NOT EXISTS "idx_users_tenant" ON "users"("tenant_id");
+CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users"("email");
+CREATE INDEX IF NOT EXISTS "idx_users_active" ON "users"("is_active");
+
+-- AddForeignKey (apenas se não existir)
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'projects_client_id_fkey') THEN
+        ALTER TABLE "projects" ADD CONSTRAINT "projects_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tasks_project_id_fkey') THEN
+        ALTER TABLE "tasks" ADD CONSTRAINT "tasks_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tasks_client_id_fkey') THEN
+        ALTER TABLE "tasks" ADD CONSTRAINT "tasks_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'transactions_project_id_fkey') THEN
+        ALTER TABLE "transactions" ADD CONSTRAINT "transactions_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'transactions_client_id_fkey') THEN
+        ALTER TABLE "transactions" ADD CONSTRAINT "transactions_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_project_id_fkey') THEN
+        ALTER TABLE "invoices" ADD CONSTRAINT "invoices_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_client_id_fkey') THEN
+        ALTER TABLE "invoices" ADD CONSTRAINT "invoices_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'categories_parent_id_fkey') THEN
+        ALTER TABLE "categories" ADD CONSTRAINT "categories_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
