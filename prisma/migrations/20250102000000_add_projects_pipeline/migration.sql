@@ -1,20 +1,25 @@
 
--- CreateTable para Pipeline de Vendas (Negócios/Deals)
+-- CreateTable para Projetos (alinhado com schema Prisma)
 CREATE TABLE IF NOT EXISTS "projects" (
-    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     "title" VARCHAR NOT NULL,
     "description" TEXT,
-    "contact_name" VARCHAR NOT NULL,
-    "client_id" UUID,
+    "client_id" TEXT,
+    "client_name" VARCHAR NOT NULL,
     "organization" VARCHAR,
-    "email" VARCHAR NOT NULL,
-    "mobile" VARCHAR NOT NULL,
     "address" TEXT,
     "budget" DECIMAL(15,2),
     "currency" VARCHAR(3) DEFAULT 'BRL',
-    "stage" VARCHAR DEFAULT 'contacted',
-    "tags" JSONB DEFAULT '[]',
+    "status" VARCHAR DEFAULT 'contacted',
+    "priority" VARCHAR DEFAULT 'medium',
+    "progress" INTEGER DEFAULT 0,
+    "start_date" DATE NOT NULL,
+    "due_date" DATE NOT NULL,
+    "completed_at" TIMESTAMP,
+    "tags" JSONB DEFAULT '[]'::jsonb,
+    "assigned_to" JSONB DEFAULT '[]'::jsonb,
     "notes" TEXT,
+    "contacts" JSONB DEFAULT '[]'::jsonb,
     "created_by" VARCHAR NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -23,12 +28,11 @@ CREATE TABLE IF NOT EXISTS "projects" (
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "idx_projects_title" ON "projects"("title");
-CREATE INDEX IF NOT EXISTS "idx_projects_stage" ON "projects"("stage");
-CREATE INDEX IF NOT EXISTS "idx_projects_contact_name" ON "projects"("contact_name");
+CREATE INDEX IF NOT EXISTS "idx_projects_status" ON "projects"("status");
 CREATE INDEX IF NOT EXISTS "idx_projects_client_id" ON "projects"("client_id");
-CREATE INDEX IF NOT EXISTS "idx_projects_active" ON "projects"("is_active");
+CREATE INDEX IF NOT EXISTS "idx_projects_priority" ON "projects"("priority");
 CREATE INDEX IF NOT EXISTS "idx_projects_created_by" ON "projects"("created_by");
-CREATE INDEX IF NOT EXISTS "idx_projects_created_at" ON "projects"("created_at" DESC);
+CREATE INDEX IF NOT EXISTS "idx_projects_active" ON "projects"("is_active");
 
--- AddForeignKey (opcional, se quiser relacionamento com clients)
+-- AddForeignKey (opcional)
 -- ALTER TABLE "projects" ADD CONSTRAINT "projects_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;

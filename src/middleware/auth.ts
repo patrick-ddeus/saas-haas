@@ -152,31 +152,30 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
 
       if (!tenant) {
         console.error('Tenant not found for user:', user.id, 'tenantId:', req.tenantId);
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'Invalid tenant',
           code: 'TENANT_NOT_FOUND'
         });
       }
 
-      // Verificar se o tenant está ativo
+      // ✅ VERIFICAÇÃO: Tenant ativo
       if (!tenant.isActive) {
-        console.error('Inactive tenant for user:', user.id, 'tenantId:', req.tenantId);
         return res.status(403).json({
-          error: 'Acesso negado',
-          message: 'Sua conta está inativa. Entre em contato com o suporte para reativar.',
+          error: 'Tenant inativo',
+          message: 'Seu tenant está inativo. Entre em contato com o suporte.'
         });
       }
 
-      // Verificar se o plano do tenant expirou
+      // ✅ VERIFICAÇÃO: Plano expirado
       if (tenant.planExpiresAt) {
         const now = new Date();
-        const expiresAt = new Date(tenant.planExpiresAt);
+        const expirationDate = new Date(tenant.planExpiresAt);
 
-        if (now > expiresAt) {
-          return res.status(403).json({ 
-            error: 'Tenant plan has expired',
-            message: 'Seu plano expirou. Entre em contato com o administrador para renovar.',
-            expiresAt: tenant.planExpiresAt
+        if (expirationDate < now) {
+          return res.status(403).json({
+            error: 'Plano expirado',
+            message: 'O plano do seu tenant expirou. Entre em contato com o administrador para renovação.',
+            expiredAt: tenant.planExpiresAt
           });
         }
       }
