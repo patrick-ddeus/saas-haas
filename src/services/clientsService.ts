@@ -295,7 +295,7 @@ export class ClientsService {
       budget: clientData.budget || null,
       currency: clientData.currency || 'BRL',
       status: clientData.status || 'active',
-      tags: JSON.stringify(clientData.tags || []),
+      tags: clientData.tags || [],
       notes: clientData.description || clientData.notes || null,
       cpf: clientData.cpf || null,
       rg: clientData.rg || null,
@@ -334,7 +334,7 @@ export class ClientsService {
     if (updateData.budget !== undefined) data.budget = updateData.budget;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;
-    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.cpf !== undefined) data.cpf = updateData.cpf;
     if (updateData.rg !== undefined) data.rg = updateData.rg;

@@ -66,27 +66,27 @@ export class AuthController {
 
       console.log('Login successful:', { userId: user.id, tenantId: user.tenant_id });
 
-      // Verificar se o tenant está ativo
-    if (!user.tenant.isActive) {
-      return res.status(403).json({
-        error: 'Acesso negado',
-        message: 'Sua conta está inativa. Entre em contato com o administrador.',
-      });
-    }
-
-    // Verificar se o plano do tenant expirou
-    if (user.tenant.planExpiresAt) {
-      const expirationDate = new Date(user.tenant.planExpiresAt);
-      const now = new Date();
-
-      if (expirationDate < now) {
+      // Verificar se o tenant existe e está ativo
+      if (user.tenant && !user.tenant.isActive) {
         return res.status(403).json({
-          error: 'Plano expirado',
-          message: 'O plano da sua conta expirou em ' + expirationDate.toLocaleDateString('pt-BR') + '. Entre em contato com o administrador para renovar.',
-          expirationDate: expirationDate.toISOString(),
+          error: 'Acesso negado',
+          message: 'Sua conta está inativa. Entre em contato com o administrador.',
         });
       }
-    }
+
+      // Verificar se o plano do tenant expirou
+      if (user.tenant && user.tenant.planExpiresAt) {
+        const expirationDate = new Date(user.tenant.planExpiresAt);
+        const now = new Date();
+
+        if (expirationDate < now) {
+          return res.status(403).json({
+            error: 'Plano expirado',
+            message: 'O plano da sua conta expirou em ' + expirationDate.toLocaleDateString('pt-BR') + '. Entre em contato com o administrador para renovar.',
+            expirationDate: expirationDate.toISOString(),
+          });
+        }
+      }
 
       res.json({
         message: 'Login successful',

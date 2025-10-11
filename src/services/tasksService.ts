@@ -286,7 +286,7 @@ class TasksService {
     if (taskData.estimatedHours !== undefined) data.estimated_hours = taskData.estimatedHours;
     if (taskData.actualHours !== undefined) data.actual_hours = taskData.actualHours;
     if (taskData.notes) data.notes = taskData.notes;
-    if (taskData.tags && taskData.tags.length > 0) data.tags = JSON.stringify(taskData.tags);
+    if (taskData.tags && taskData.tags.length > 0) data.tags = taskData.tags;
     if (taskData.subtasks && taskData.subtasks.length > 0) data.subtasks = JSON.stringify(taskData.subtasks);
 
     console.log('[TasksService] Creating task with data:', data);
@@ -317,7 +317,7 @@ class TasksService {
     if (updateData.estimatedHours !== undefined) data.estimated_hours = updateData.estimatedHours;
     if (updateData.actualHours !== undefined) data.actual_hours = updateData.actualHours;
     if (updateData.progress !== undefined) data.progress = updateData.progress;
-    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.subtasks !== undefined) data.subtasks = JSON.stringify(updateData.subtasks);
 

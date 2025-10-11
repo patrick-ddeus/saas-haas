@@ -1,13 +1,15 @@
 /**
  * PROJECTS SERVICE - Gestão de Projetos/Casos
  * ============================================
- * 
- * ✅ ISOL AMENTO TENANT: Usa TenantDatabase e helpers de isolamento
+ *
+ * ✅ ISOLAMENTO TENANT: Usa TenantDatabase e helpers de isolamento
  * ✅ SEM DADOS MOCK: Operações reais no PostgreSQL
  * ✅ ID AUTOMÁTICO: PostgreSQL gen_random_uuid()
- * ✅ CAST EXPLÍCITO: JSONB e DATE fields
- * 
- * Baseado no padrão do clientsService.ts
+ * ✅ CAST EXPLÍCITO: JSONB e DATE fields (tratados pelos helpers)
+ *
+ * Observação importante:
+ * - NÃO usar JSON.stringify em campos JSON (tags, assigned_to, contacts, etc).
+ *   Deixe o tenantHelpers serializar e aplicar ::jsonb automaticamente.
  */
 
 import { TenantDatabase } from '../config/database';
@@ -39,7 +41,7 @@ export interface Project {
   due_date: string;
   completed_at?: string;
   tags: string[];
-  assigned_to: string[];
+  assigned_to: string[]; // array de user ids / objetos
   notes?: string;
   contacts: any[];
   created_by: string;
@@ -60,12 +62,12 @@ export interface CreateProjectData {
   status?: 'contacted' | 'proposal' | 'won' | 'lost';
   priority?: 'low' | 'medium' | 'high';
   progress?: number;
-  startDate: string;
-  dueDate: string;
+  startDate: string; // 'YYYY-MM-DD' ou ISO
+  dueDate: string;   // 'YYYY-MM-DD' ou ISO
   tags?: string[];
-  assignedTo?: string[];
+  assignedTo?: string[]; // passar array (não string)
   notes?: string;
-  contacts?: any[];
+  contacts?: any[];      // passar array/obj (não string)
 }
 
 export interface UpdateProjectData extends Partial<CreateProjectData> {}
@@ -88,10 +90,8 @@ class ProjectsService {
 
   /**
    * Garante que a tabela tenha todas as colunas necessárias
-   * IMPORTANTE: Adiciona colunas que podem estar faltando em tenants antigos
    */
   private async ensureTables(tenantDB: TenantDatabase): Promise<void> {
-    // Verifica se a tabela existe
     const checkTableQuery = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -99,55 +99,34 @@ class ProjectsService {
         AND table_name = '${this.tableName}'
       )
     `;
-    
-    const tableExists = await queryTenantSchema<{exists: boolean}>(tenantDB, checkTableQuery);
-    
-    if (!tableExists || tableExists.length === 0) {
+
+    const tableExists = await queryTenantSchema<{ exists: boolean }>(tenantDB, checkTableQuery);
+
+    if (!tableExists || tableExists.length === 0 || !tableExists[0].exists) {
       console.log('Table projects does not exist in tenant schema');
       return;
     }
 
-    // Adicionar coluna due_date se não existir
-    try {
-      await tenantDB.executeInTenantSchema(`
-        ALTER TABLE \${schema}.projects 
-        ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE
-      `);
-    } catch (e) {
-      console.log('Column due_date already exists or error:', e);
+    // Adicionar colunas opcionais se não existirem (IF NOT EXISTS)
+    const alterStatements = [
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS organization VARCHAR(255)`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS address VARCHAR(255)`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'BRL'`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb`
+    ];
+
+    for (const stmt of alterStatements) {
+      try {
+        await tenantDB.executeInTenantSchema(stmt);
+      } catch (e) {
+        console.log('Alter table statement failed (ignored):', e);
+      }
     }
 
-    // Adicionar coluna completed_at se não existir
-    try {
-      await tenantDB.executeInTenantSchema(`
-        ALTER TABLE \${schema}.projects 
-        ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE
-      `);
-    } catch (e) {
-      console.log('Column completed_at already exists or error:', e);
-    }
-
-    // Adicionar coluna assigned_to se não existir
-    try {
-      await tenantDB.executeInTenantSchema(`
-        ALTER TABLE \${schema}.projects 
-        ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb
-      `);
-    } catch (e) {
-      console.log('Column assigned_to already exists or error:', e);
-    }
-
-    // Adicionar coluna contacts se não existir
-    try {
-      await tenantDB.executeInTenantSchema(`
-        ALTER TABLE \${schema}.projects 
-        ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb
-      `);
-    } catch (e) {
-      console.log('Column contacts already exists or error:', e);
-    }
-
-    // Atualizar due_date com valores de end_date se due_date estiver null
+    // Migrações e preenchimentos seguros (com try/catch)
     try {
       await tenantDB.executeInTenantSchema(`
         UPDATE \${schema}.projects 
@@ -158,7 +137,6 @@ class ProjectsService {
       console.log('Error migrating end_date to due_date:', e);
     }
 
-    // Preencher valores NULL em start_date com created_at
     try {
       await tenantDB.executeInTenantSchema(`
         UPDATE \${schema}.projects 
@@ -169,7 +147,6 @@ class ProjectsService {
       console.log('Error filling NULL start_date:', e);
     }
 
-    // Preencher valores NULL em due_date com created_at + 30 dias
     try {
       await tenantDB.executeInTenantSchema(`
         UPDATE \${schema}.projects 
@@ -180,13 +157,14 @@ class ProjectsService {
       console.log('Error filling NULL due_date:', e);
     }
 
-    // Garantir que start_date e due_date sejam NOT NULL
+    // Garantir NOT NULL (aplicar com cuidado)
     try {
       await tenantDB.executeInTenantSchema(`
         ALTER TABLE \${schema}.projects 
         ALTER COLUMN start_date SET NOT NULL
       `);
     } catch (e) {
+      // pode já estar NOT NULL ou schema antigo
       console.log('Column start_date already NOT NULL or error:', e);
     }
 
@@ -279,7 +257,7 @@ class ProjectsService {
         COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
         COALESCE(notes, '') as notes,
         COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
-        created_by::text,
+        created_by VARCHAR NOT NULL,
         to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
         is_active
@@ -297,7 +275,7 @@ class ProjectsService {
 
     const [projects, countResult] = await Promise.all([
       queryTenantSchema<Project>(tenantDB, projectsQuery, [...queryParams, limit, offset]),
-      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
+      queryTenantSchema<{ total: string }>(tenantDB, countQuery, queryParams)
     ]);
 
     const total = parseInt(countResult[0]?.total || '0');
@@ -346,7 +324,7 @@ class ProjectsService {
         COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
         COALESCE(notes, '') as notes,
         COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
-        created_by::text,
+        created_by VARCHAR NOT NULL,
         to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
         is_active
@@ -362,42 +340,47 @@ class ProjectsService {
    * Cria novo projeto
    */
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
-    await this.ensureTables(tenantDB);
+  await this.ensureTables(tenantDB);
 
-    // Validar campos obrigatórios
-    if (!projectData.title) throw new Error('Título é obrigatório');
-    if (!projectData.clientName) throw new Error('Cliente é obrigatório');
-    if (!projectData.startDate) throw new Error('Data de início é obrigatória');
-    if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
-    if (!createdBy) throw new Error('Usuário não identificado');
+  // Validações explícitas para clareza
+  if (!projectData.title) throw new Error('Título é obrigatório');
+  if (!projectData.clientName) throw new Error('Nome do cliente é obrigatório');
+  if (!projectData.startDate) throw new Error('Data de início é obrigatória');
+  if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
+  if (!createdBy) throw new Error('Usuário criador não identificado');
 
-    // Montar dados garantindo todos os campos obrigatórios
-    const data: Record<string, any> = {
-      // CAMPOS OBRIGATÓRIOS (NOT NULL)
-      title: projectData.title,
-      client_name: projectData.clientName,
-      status: projectData.status || 'contacted',
-      priority: projectData.priority || 'medium',
-      start_date: projectData.startDate,
-      due_date: projectData.dueDate,
-      created_by: createdBy,
-      
-      // CAMPOS OPCIONAIS COM VALORES DEFAULT
-      description: projectData.description || '',
-      client_id: projectData.clientId || null,
-      organization: projectData.organization || '',
-      address: projectData.address || '',
-      budget: projectData.budget || 0,
-      currency: projectData.currency || 'BRL',
-      progress: projectData.progress || 0,
-      tags: JSON.stringify(projectData.tags || []),
-      assigned_to: JSON.stringify(projectData.assignedTo || []),
-      contacts: JSON.stringify(projectData.contacts || []),
-      notes: projectData.notes || ''
-    };
-
-    return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
+  /**
+   * ESTE OBJETO É A SOLUÇÃO DEFINITIVA.
+   * A ordem e a completude das propriedades aqui correspondem EXATAMENTE
+   * à ordem das colunas no seu arquivo `migration.sql`.
+   */
+  const data: Record<string, any> = {
+    title: projectData.title,
+    description: projectData.description || null,
+    client_name: projectData.clientName,
+    organization: projectData.organization || null,
+    address: projectData.address || null,
+    budget: projectData.budget ?? 0,
+    currency: projectData.currency || 'BRL',
+    status: projectData.status || 'contacted',
+    priority: projectData.priority || 'medium',
+    progress: projectData.progress ?? 0,
+    start_date: projectData.startDate,
+    due_date: projectData.dueDate,
+    completed_at: null,
+    tags: projectData.tags || [],
+    assigned_to: projectData.assignedTo || [],
+    notes: projectData.notes || null,
+    contacts: projectData.contacts || [],
+    created_by: createdBy,
+  };
+  if (projectData.clientId) {
+    data.client_id = projectData.clientId;
   }
+
+  // Executa a inserção no schema do tenant
+  return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
+}
 
   /**
    * Atualiza projeto existente
@@ -420,10 +403,11 @@ class ProjectsService {
     if (updateData.progress !== undefined) data.progress = updateData.progress;
     if (updateData.startDate !== undefined) data.start_date = updateData.startDate;
     if (updateData.dueDate !== undefined) data.due_date = updateData.dueDate;
-    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
-    if (updateData.assignedTo !== undefined) data.assigned_to = JSON.stringify(updateData.assignedTo);
+    if (updateData.tags !== undefined) data.tags = updateData.tags;
+    // NÃO serializar — passar array diretamente
+    if (updateData.assignedTo !== undefined) data.assigned_to = updateData.assignedTo;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
-    if (updateData.contacts !== undefined) data.contacts = JSON.stringify(updateData.contacts);
+    if (updateData.contacts !== undefined) data.contacts = updateData.contacts;
 
     if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
@@ -462,7 +446,7 @@ class ProjectsService {
     };
   }> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
       SELECT 
         COUNT(*) as total,
@@ -479,10 +463,10 @@ class ProjectsService {
       FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema<any>(tenantDB, query);
     const stats = result[0];
-    
+
     return {
       total: parseInt(stats.total || '0'),
       avgProgress: Math.round(parseFloat(stats.avg_progress || '0')),

@@ -259,7 +259,7 @@ export class InvoicesService {
       status: invoiceData.status || 'draft',
       due_date: invoiceData.dueDate,
       items: JSON.stringify(invoiceData.items || []),
-      tags: JSON.stringify(invoiceData.tags || []),
+     tags: invoiceData.tags || [],
       notes: invoiceData.notes || null,
       created_by: createdBy
     };
@@ -287,7 +287,7 @@ export class InvoicesService {
     if (updateData.status !== undefined) data.status = updateData.status;
     if (updateData.dueDate !== undefined) data.due_date = updateData.dueDate;
     if (updateData.items !== undefined) data.items = JSON.stringify(updateData.items);
-    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.paymentStatus !== undefined) data.payment_status = updateData.paymentStatus;
     if (updateData.paymentMethod !== undefined) data.payment_method = updateData.paymentMethod;

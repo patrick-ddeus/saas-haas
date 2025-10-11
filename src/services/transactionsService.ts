@@ -268,7 +268,7 @@ export class TransactionsService {
       project_title: transactionData.projectTitle || null,
       client_id: transactionData.clientId || null,
       client_name: transactionData.clientName || null,
-      tags: JSON.stringify(transactionData.tags || []),
+      tags: transactionData.tags || [],
       notes: transactionData.notes || null,
       is_recurring: transactionData.isRecurring || false,
       recurring_frequency: transactionData.recurringFrequency || null,
@@ -298,7 +298,7 @@ export class TransactionsService {
     if (updateData.projectTitle !== undefined) data.project_title = updateData.projectTitle;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
     if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
-    if (updateData.tags !== undefined) data.tags = JSON.stringify(updateData.tags);
+    if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.isRecurring !== undefined) data.is_recurring = updateData.isRecurring;
     if (updateData.recurringFrequency !== undefined) data.recurring_frequency = updateData.recurringFrequency;

@@ -273,7 +273,7 @@ export class DealsService {
       budget: data.budget || null,
       currency: data.currency || 'BRL',
       stage: data.stage || 'contacted',
-      tags: JSON.stringify(data.tags || []),
+      tags: data.tags || [],
       description: data.description || null,
       client_id: data.clientId || null,
       created_by: userId,
@@ -313,7 +313,7 @@ export class DealsService {
     if (data.budget !== undefined) updateData.budget = data.budget;
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.stage !== undefined) updateData.stage = data.stage;
-    if (data.tags !== undefined) updateData.tags = JSON.stringify(data.tags);
+    if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.clientId !== undefined) updateData.client_id = data.clientId;
 
