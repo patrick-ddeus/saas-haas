@@ -355,8 +355,10 @@ class ProjectsService {
    * à ordem das colunas no seu arquivo `migration.sql`.
    */
   const data: Record<string, any> = {
+    // Colunas da tabela "projects" na ordem correta:
     title: projectData.title,
     description: projectData.description || null,
+    client_id: projectData.clientId || null,
     client_name: projectData.clientName,
     organization: projectData.organization || null,
     address: projectData.address || null,
@@ -367,18 +369,15 @@ class ProjectsService {
     progress: projectData.progress ?? 0,
     start_date: projectData.startDate,
     due_date: projectData.dueDate,
-    completed_at: null,
+    completed_at: null, // Defina como nulo na criação
     tags: projectData.tags || [],
     assigned_to: projectData.assignedTo || [],
     notes: projectData.notes || null,
     contacts: projectData.contacts || [],
     created_by: createdBy,
   };
-  if (projectData.clientId) {
-    data.client_id = projectData.clientId;
-  }
 
-  // Executa a inserção no schema do tenant
+  // O helper agora receberá um objeto perfeitamente ordenado e completo.
   return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
 }
 
