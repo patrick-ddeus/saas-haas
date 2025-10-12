@@ -30,6 +30,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { X, Plus } from 'lucide-react';
 import { Transaction, PaymentMethod, TransactionStatus } from '@/types/cashflow';
+import { useFormData } from '@/hooks/useFormData';
 
 /**
  * Schema de validação para transações usando Zod
@@ -113,23 +114,7 @@ const statusOptions = [
   { value: 'cancelled', label: 'Cancelado', color: 'bg-red-100 text-red-800' },
 ];
 
-/**
- * Dados mock para projetos - em produção viriam da API
- */
-const mockProjects = [
-  { id: '1', name: 'Ação Previdenciária - João Santos' },
-  { id: '2', name: 'Divórcio Consensual - Maria e Carlos' },
-  { id: '3', name: 'Recuperação Judicial - Tech LTDA' },
-];
 
-/**
- * Dados mock para clientes - em produção viriam da API
- */
-const mockClients = [
-  { id: '1', name: 'Maria Silva Santos' },
-  { id: '2', name: 'João Carlos Oliveira' },
-  { id: '3', name: 'Tech LTDA' },
-];
 
 /**
  * Componente TransactionForm
@@ -155,6 +140,9 @@ export function TransactionForm({
   const [newTag, setNewTag] = useState('');
   const [isRecurring, setIsRecurring] = useState(forceRecurring || transaction?.isRecurring || false);
   const [error, setError] = useState<string | null>(null);
+
+  // Carregar dados reais de projetos e clientes
+  const { projects, clients, isLoading: isLoadingFormData, error: formDataError } = useFormData();
 
   // Log para debug
   console.log('TransactionForm renderizado:', { open, isEditing, forceRecurring, transaction });
@@ -253,17 +241,29 @@ export function TransactionForm({
     const selectedCategory = categories.find(cat => cat.id === data.categoryId);
     const categoryName = selectedCategory ? selectedCategory.name : data.categoryId;
 
+    // Buscar nomes dos projetos e clientes selecionados
+    const selectedProject = projects.find(p => p.id === data.projectId);
+    const selectedClient = clients.find(c => c.id === data.clientId);
+
     const submitData = {
       ...data,
       category: categoryName, // Adicionar o nome da categoria
       projectId: data.projectId === 'none' ? '' : data.projectId,
+      projectTitle: selectedProject?.title || '',
       clientId: data.clientId === 'none' ? '' : data.clientId,
+      clientName: selectedClient?.name || '',
       tags,
       isRecurring,
       recurringFrequency: isRecurring ? data.recurringFrequency : undefined
     };
 
-    console.log('Submitting transaction with category:', { categoryId: data.categoryId, category: categoryName });
+    console.log('Submitting transaction:', {
+      projectId: submitData.projectId,
+      projectTitle: submitData.projectTitle,
+      clientId: submitData.clientId,
+      clientName: submitData.clientName
+    });
+    
     onSubmit(submitData);
     onOpenChange(false);
   };
@@ -294,13 +294,13 @@ export function TransactionForm({
   };
 
   // Exibe erro se houver problemas no componente
-  if (error) {
+  if (error || formDataError) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Erro</DialogTitle>
-            <DialogDescription>{error}</DialogDescription>
+            <DialogDescription>{error || formDataError}</DialogDescription>
           </DialogHeader>
           <div className="flex justify-end">
             <Button onClick={handleClose}>Fechar</Button>
@@ -509,14 +509,14 @@ export function TransactionForm({
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione um projeto" />
+                            <SelectValue placeholder={isLoadingFormData ? "Carregando..." : "Selecione um projeto"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="none">Nenhum projeto</SelectItem>
-                          {mockProjects.map((project) => (
+                          {projects.map((project) => (
                             <SelectItem key={project.id} value={project.id}>
-                              {project.name}
+                              {project.title}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -536,12 +536,12 @@ export function TransactionForm({
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione um cliente" />
+                            <SelectValue placeholder={isLoadingFormData ? "Carregando..." : "Selecione um cliente"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="none">Nenhum cliente</SelectItem>
-                          {mockClients.map((client) => (
+                          {clients.map((client) => (
                             <SelectItem key={client.id} value={client.id}>
                               {client.name}
                             </SelectItem>

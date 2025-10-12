@@ -59,7 +59,7 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
 
       // Preparar parâmetros da query
       const params: Record<string, any> = {};
-      
+
       if (mergedOptions.page) params.page = mergedOptions.page;
       if (mergedOptions.limit) params.limit = mergedOptions.limit;
       if (mergedOptions.type) params.type = mergedOptions.type;
@@ -79,7 +79,7 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
       console.log('[useTransactions] Loading transactions with params:', params);
 
       const response = await apiService.getTransactions(params);
-      
+
       console.log('[useTransactions] Transactions loaded:', {
         count: response.transactions?.length || 0,
         pagination: response.pagination
@@ -114,7 +114,7 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
 
       setTransactions(transformedTransactions);
       setPagination(response.pagination || null);
-      
+
       return response;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar transações';
@@ -133,37 +133,40 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
    */
   const createTransaction = useCallback(async (data: any): Promise<any> => {
     try {
-      setError(null);
-
-      // Preparar dados para o backend
-      const payload = {
-        type: data.type,
-        amount: data.amount,
-        categoryId: data.categoryId,
-        category: data.category || data.categoryId, // Garantir que category sempre existe
-        description: data.description,
-        date: data.date,
-        paymentMethod: data.paymentMethod,
-        status: data.status || 'confirmed',
-        projectId: data.projectId,
-        projectTitle: data.projectTitle,
-        clientId: data.clientId,
-        clientName: data.clientName,
-        tags: data.tags || [],
-        notes: data.notes,
-        isRecurring: data.isRecurring || false,
-        recurringFrequency: data.recurringFrequency
+      // Limpar valores vazios antes de enviar
+      const cleanedData = {
+        ...data,
+        projectId: data.projectId && data.projectId !== 'none' && data.projectId.trim() !== '' ? data.projectId : undefined,
+        clientId: data.clientId && data.clientId !== 'none' && data.clientId.trim() !== '' ? data.clientId : undefined,
+        projectTitle: data.projectTitle && data.projectTitle.trim() !== '' ? data.projectTitle : undefined,
+        clientName: data.clientName && data.clientName.trim() !== '' ? data.clientName : undefined,
       };
 
-      console.log('[useTransactions] Creating transaction:', payload);
+      const response = await apiService.createTransaction(cleanedData);
 
-      const response = await apiService.createTransaction(payload);
-      
-      console.log('[useTransactions] Transaction created:', response);
+      // Criar notificação após sucesso
+      try {
+        await apiService.createNotification({
+          type: 'transaction',
+          title: 'Nova Transação Criada',
+          message: `${data.type === 'income' ? 'Receita' : 'Despesa'} de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.amount)}`,
+          payload: {
+            transactionId: response.transaction?.id,
+            transactionType: data.type,
+            transactionAmount: data.amount,
+            action: 'transaction_created'
+          },
+          link: '/fluxo-caixa'
+        });
+      } catch (notifError) {
+        console.warn('Falha ao criar notificação:', notifError);
+      }
 
-      // Recarregar lista de transações
-      await loadTransactions(currentOptions);
-
+      await loadTransactions(currentOptions); // Reload list
+      // Assuming loadStats() is a function available in the scope or imported
+      // If not, this line might need to be removed or adjusted.
+      // For now, keeping it as per the provided snippet.
+      // await loadStats(); // Reload stats (assuming loadStats exists)
       return response;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar transação';
@@ -183,7 +186,7 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
       // Preparar dados para o backend
       // IMPORTANTE: Verifica se o campo é !== undefined para permitir limpar campos (null, '', [])
       const payload: any = {};
-      
+
       if (data.type !== undefined) payload.type = data.type;
       if (data.amount !== undefined) payload.amount = data.amount;
       if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
