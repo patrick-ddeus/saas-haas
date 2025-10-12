@@ -249,8 +249,13 @@ export function TransactionForm({
    * Inclui validação e tratamento de erro
    */
   const handleSubmit = (data: TransactionFormData) => {
+    // Mapear categoryId para category name
+    const selectedCategory = categories.find(cat => cat.id === data.categoryId);
+    const categoryName = selectedCategory ? selectedCategory.name : data.categoryId;
+
     const submitData = {
       ...data,
+      category: categoryName, // Adicionar o nome da categoria
       projectId: data.projectId === 'none' ? '' : data.projectId,
       clientId: data.clientId === 'none' ? '' : data.clientId,
       tags,
@@ -258,6 +263,7 @@ export function TransactionForm({
       recurringFrequency: isRecurring ? data.recurringFrequency : undefined
     };
 
+    console.log('Submitting transaction with category:', { categoryId: data.categoryId, category: categoryName });
     onSubmit(submitData);
     onOpenChange(false);
   };

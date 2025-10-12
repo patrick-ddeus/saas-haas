@@ -129,26 +129,38 @@ export class TransactionsController {
 
   async createTransaction(req: TenantRequest, res: Response) {
     try {
+      console.log('=== CREATE TRANSACTION DEBUG ===');
+      console.log('Request user:', req.user ? { id: req.user.id, accountType: req.user.accountType } : 'undefined');
+      console.log('Request tenantDB:', req.tenantDB ? 'present' : 'undefined');
+      console.log('Request body:', req.body);
+
       if (!req.user || !req.tenantDB) {
+        console.log('❌ Authentication/TenantDB missing');
         return res.status(401).json({ error: 'Authentication required' });
       }
 
       if (req.user.accountType === 'SIMPLES') {
+        console.log('❌ SIMPLES account access denied');
         return res.status(403).json({
           error: 'Access denied',
           message: 'Financial operations not available for this account type',
         });
       }
 
+      console.log('✅ Validating transaction data...');
       const validatedData = createTransactionSchema.parse(req.body);
+      console.log('✅ Data validated successfully');
+
+      console.log('✅ Creating transaction via service...');
       const transaction = await transactionsService.createTransaction(req.tenantDB, validatedData, req.user.id);
+      console.log('✅ Transaction created:', transaction.id);
 
       res.status(201).json({
         message: 'Transaction created successfully',
         transaction,
       });
     } catch (error) {
-      console.error('Create transaction error:', error);
+      console.error('❌ Create transaction error:', error);
       res.status(400).json({
         error: 'Failed to create transaction',
         details: error instanceof Error ? error.message : 'Unknown error',

@@ -52,11 +52,13 @@ export function createApp() {
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/publications', publicationsRoutes);
 
+  console.log('🔧 All API routes registered successfully');
+
   // Serve static files in production
   if (process.env.NODE_ENV === 'production') {
     const spaPath = path.join(__dirname, '../spa');
     app.use(express.static(spaPath));
-    
+
     // SPA fallback - serve index.html for all non-API routes
     app.get('*', (req, res) => {
       res.sendFile(path.join(spaPath, 'index.html'));

@@ -20,16 +20,19 @@ class ApiService {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
+  const url = `${this.baseUrl}${endpoint}`;
+  // 👇 LEIA O TOKEN AQUI, DIRETAMENTE DO LOCALSTORAGE
+  const token = localStorage.getItem('access_token'); 
 
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
-        ...options.headers,
-      },
-    };
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      // 👇 USE A VARIÁVEL 'token' QUE ACABOU DE SER LIDA
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    },
+  };
 
     try {
       const response = await fetch(url, config);

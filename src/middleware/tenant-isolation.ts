@@ -9,6 +9,7 @@ interface TenantRequest extends Request {
     isActive: boolean;
   };
   tenantDB?: any;
+  tenantId?: string;
 }
 
 export const validateTenantAccess = async (req: TenantRequest, res: Response, next: NextFunction) => {
@@ -25,8 +26,9 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
     }
 
     // Regular users must have tenantId
-    if (!user.tenantId) {
-      console.error('User without tenantId attempting access:', user.userId);
+    const userTenantId = user.tenantId || req.tenantId;
+    if (!userTenantId) {
+      console.error('User without tenantId attempting access:', user.id);
       return res.status(403).json({ 
         error: 'Access denied: Invalid user tenant association' 
       });
@@ -34,17 +36,17 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
 
     // OTIMIZADO: Busca direta por ID ao invés de getAllTenants + filter
     const { database, tenantDB } = await import('../config/database');
-    const tenant = await database.getTenantById(user.tenantId);
+    const tenant = await database.getTenantById(userTenantId);
     
     if (!tenant) {
-      console.error('Tenant not found:', user.tenantId);
+      console.error('Tenant not found:', userTenantId);
       return res.status(403).json({ 
         error: 'Access denied: Tenant not found' 
       });
     }
     
     if (!tenant.isActive) {
-      console.error('Inactive tenant access attempt:', user.tenantId);
+      console.error('Inactive tenant access attempt:', userTenantId);
       return res.status(403).json({ 
         error: 'Access denied: Tenant is inactive' 
       });
@@ -58,10 +60,18 @@ export const validateTenantAccess = async (req: TenantRequest, res: Response, ne
     };
 
     // CRÍTICO: Adicionar TenantDatabase ao request para isolamento real
-    req.tenantDB = await tenantDB.getTenantDatabase(user.tenantId);
+    try {
+      req.tenantDB = await tenantDB.getTenantDatabase(userTenantId);
+      console.log('TenantDB successfully injected for tenant:', userTenantId);
+    } catch (dbError) {
+      console.error('Error creating tenant database connection:', dbError);
+      return res.status(500).json({ 
+        error: 'Database connection error' 
+      });
+    }
 
     console.log('Tenant access validated:', {
-      userId: user?.userId || user?.id,
+      userId: user?.id,
       tenantId: tenant.id,
       tenantName: tenant.name,
       accountType: user.accountType

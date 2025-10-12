@@ -140,7 +140,7 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
         type: data.type,
         amount: data.amount,
         categoryId: data.categoryId,
-        category: data.category,
+        category: data.category || data.categoryId, // Garantir que category sempre existe
         description: data.description,
         date: data.date,
         paymentMethod: data.paymentMethod,
@@ -188,6 +188,10 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
       if (data.amount !== undefined) payload.amount = data.amount;
       if (data.categoryId !== undefined) payload.categoryId = data.categoryId;
       if (data.category !== undefined) payload.category = data.category;
+      if (data.categoryId !== undefined && data.category === undefined) {
+        // Se categoryId foi atualizado mas category não, usar categoryId como fallback
+        payload.category = data.categoryId;
+      }
       if (data.description !== undefined) payload.description = data.description;
       if (data.date !== undefined) payload.date = data.date;
       if (data.paymentMethod !== undefined) payload.paymentMethod = data.paymentMethod;
