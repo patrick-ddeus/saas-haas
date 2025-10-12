@@ -12,6 +12,14 @@ router.use(authenticateToken);
 router.use(tenantMiddleware);
 router.use(validateTenantAccess);
 
+// GET /api/dashboard - Unified endpoint
+router.get('/', (req, res, next) => {
+  console.log('🎯 Dashboard route hit: GET /api/dashboard');
+  console.log('👤 User authenticated:', !!req.user);
+  console.log('🏢 Tenant ID:', req.tenantId);
+  next();
+}, dashboardController.getDashboard);
+
 // GET /api/dashboard/metrics
 router.get('/metrics', async (req: AuthenticatedRequest, res: Response) => {
   try {

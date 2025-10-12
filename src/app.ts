@@ -37,7 +37,9 @@ export function createApp() {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
   });
 
-  // API routes
+  // API routes - Order matters! Most specific routes first
+  app.use('/api/admin/auth', adminAuthRoutes);
+  app.use('/api/admin', adminRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/clients', clientsRoutes);
@@ -47,12 +49,20 @@ export function createApp() {
   app.use('/api/transactions', transactionsRoutes);
   app.use('/api/invoices', invoicesRoutes);
   app.use('/api/settings', settingsRoutes);
-  app.use('/api/admin', adminRoutes);
-  app.use('/api/admin/auth', adminAuthRoutes);
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/publications', publicationsRoutes);
 
+  // Debug route registration
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      console.log('📍 Route:', middleware.route.path);
+    } else if (middleware.name === 'router') {
+      console.log('📍 Router middleware found at:', middleware.regexp);
+    }
+  });
+
   console.log('🔧 All API routes registered successfully');
+  console.log('📍 Dashboard route mounted at: /api/dashboard');
 
   // Serve static files in production
   if (process.env.NODE_ENV === 'production') {

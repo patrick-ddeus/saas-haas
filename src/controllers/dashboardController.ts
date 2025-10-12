@@ -33,8 +33,13 @@ export class DashboardController {
   }
 
   async getDashboard(req: TenantRequest, res: Response) {
+    console.log('✅ DASHBOARD ROUTE ACCESSED SUCCESSFULLY!');
+    console.log('📊 User:', req.user?.email);
+    console.log('🏢 TenantID:', req.user?.tenantId);
+    
     try {
       if (!req.user || !req.tenantDB) {
+        console.log('❌ Authentication failed - no user or tenantDB');
         return res.status(401).json({ error: 'Authentication required' });
       }
 

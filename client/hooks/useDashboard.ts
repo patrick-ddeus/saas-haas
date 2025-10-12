@@ -78,115 +78,80 @@ export function useDashboard() {
     tasks: { total: 0, completed: 0, inProgress: 0, notStarted: 0, urgent: 0 }
   });
 
-  const loadDashboardMetrics = async () => {
+  const loadDashboardData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await apiService.getDashboardMetrics();
+      console.log('🔄 Loading dashboard data...');
+      const response = await apiService.getDashboard();
+      
+      console.log('📊 Dashboard response received:', response);
       
       // Validate response structure
       if (!response || typeof response !== 'object') {
         throw new Error('Invalid response format');
       }
       
+      // Extract data from unified response
+      const metricsData = response.metrics || getDefaultMetrics();
+      const chartData = response.charts || {
+        financial: { cashFlow: [], categories: { income: [], expense: [] } },
+        projects: [],
+        tasks: []
+      };
+      const activityData = response.recentActivity || [];
+      
       // Ensure all required properties exist
       const validatedMetrics = {
-        financial: response.financial || getDefaultMetrics().financial,
-        clients: response.clients || getDefaultMetrics().clients,
-        projects: response.projects || getDefaultMetrics().projects,
-        tasks: response.tasks || getDefaultMetrics().tasks,
-        publications: response.publications
+        financial: metricsData.financial || getDefaultMetrics().financial,
+        clients: metricsData.clients || getDefaultMetrics().clients,
+        projects: metricsData.projects || getDefaultMetrics().projects,
+        tasks: metricsData.tasks || getDefaultMetrics().tasks,
+        publications: metricsData.publications
       };
       
       setMetrics(validatedMetrics);
-      return validatedMetrics;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard metrics';
-      setError(errorMessage);
-      console.error('Dashboard metrics error:', err);
+      setChartData(chartData);
+      setRecentActivity(Array.isArray(activityData) ? activityData : []);
       
-      // Set default metrics to prevent rendering errors
+      console.log('✅ Dashboard data loaded successfully');
+      return { metrics: validatedMetrics, charts: chartData, recentActivity: activityData };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
+      setError(errorMessage);
+      console.error('Dashboard data error:', err);
+      
+      // Set default data to prevent rendering errors
       const defaultMetrics = getDefaultMetrics();
       setMetrics(defaultMetrics);
-      return defaultMetrics;
+      setChartData({
+        financial: { cashFlow: [], categories: { income: [], expense: [] } },
+        projects: [],
+        tasks: []
+      });
+      setRecentActivity([]);
+      return { metrics: defaultMetrics, charts: null, recentActivity: [] };
     } finally {
       setIsLoading(false);
     }
   };
 
   const loadRecentActivity = async (limit: number = 10) => {
-    try {
-      const response = await apiService.getRecentActivity(limit);
-      
-      // Validate response is an array
-      if (!Array.isArray(response)) {
-        console.warn('Recent activity response is not an array, using empty array');
-        setRecentActivity([]);
-        return [];
-      }
-      
-      // Validate each activity item
-      const validatedActivity = response.filter(item => 
-        item && 
-        typeof item === 'object' && 
-        item.id && 
-        item.type && 
-        item.title && 
-        item.date
-      );
-      
-      setRecentActivity(validatedActivity);
-      return validatedActivity;
-    } catch (err) {
-      console.error('Recent activity error:', err);
-      setRecentActivity([]);
-      return [];
-    }
+    console.log('⚠️ loadRecentActivity: This method is deprecated. Use loadDashboardData instead.');
+    return [];
   };
 
   const loadChartData = async (period: string = '30d') => {
-    try {
-      const response = await apiService.getChartData(period);
-      
-      // Provide default structure if response is invalid
-      const defaultChartData = {
-        revenue: [],
-        expenses: [],
-        financial: null,
-        projects: [],
-        tasks: []
-      };
-      
-      if (!response || typeof response !== 'object') {
-        setChartData(defaultChartData);
-        return defaultChartData;
-      }
-      
-      setChartData(response);
-      return response;
-    } catch (err) {
-      console.error('Chart data error:', err);
-      const defaultChartData = {
-        revenue: [],
-        expenses: [],
-        financial: null,
-        projects: [],
-        tasks: []
-      };
-      setChartData(defaultChartData);
-      return defaultChartData;
-    }
+    console.log('⚠️ loadChartData: This method is deprecated. Use loadDashboardData instead.');
+    return null;
   };
 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        await Promise.allSettled([
-          loadDashboardMetrics(),
-          loadRecentActivity(),
-          loadChartData()
-        ]);
+        console.log('🚀 Initializing dashboard data load...');
+        await loadDashboardData();
       } catch (error) {
         console.error('Error loading initial dashboard data:', error);
       }
@@ -201,7 +166,7 @@ export function useDashboard() {
     chartData,
     isLoading,
     error,
-    loadDashboardMetrics,
+    loadDashboardData,
     loadRecentActivity,
     loadChartData,
   };

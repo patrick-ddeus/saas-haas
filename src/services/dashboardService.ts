@@ -123,12 +123,19 @@ export class DashboardService {
     return {
       financial: financialStats,
       clients: clientsStats,
-      projects: projectsStats,
+      projects: {
+        total: projectsStats.total,
+        contacted: projectsStats.byStatus.contacted,
+        proposal: projectsStats.byStatus.proposal,
+        won: projectsStats.byStatus.won,
+        lost: projectsStats.byStatus.lost,
+        thisMonth: 0
+      },
       tasks: {
         total: parseInt(String(tasksStats.total)) || 0,
         completed: parseInt(String(tasksStats.completed)) || 0,
-        inProgress: parseInt(String(tasksStats.in_progress)) || 0,
-        notStarted: parseInt(String(tasksStats.not_started)) || 0,
+        inProgress: parseInt(String(tasksStats.inProgress)) || 0,
+        notStarted: parseInt(String(tasksStats.notStarted)) || 0,
         urgent: parseInt(String(tasksStats.urgent)) || 0
       },
       publications: publicationsStats
@@ -148,7 +155,7 @@ export class DashboardService {
     const [recentClients, recentProjects, recentTasks] = await Promise.all([
       clientsService.getClients(tenantDB, { limit: 5, page: 1 }),
       projectsService.getProjects(tenantDB, { limit: 5, page: 1 }),
-      tasksService.getTasks(tenantDB, 5, 0)
+      tasksService.getTasks(tenantDB, { limit: 5, page: 1 })
     ]);
 
     recentClients.clients.forEach(client => {
@@ -201,10 +208,17 @@ export class DashboardService {
     let financialData = null;
 
     if (accountType === 'COMPOSTA' || accountType === 'GERENCIAL') {
-      const transactionsByCategory = await transactionsService.getTransactionsByCategory(tenantDB, dateFromStr);
+      // Busca categorias de receitas e despesas em paralelo
+      const [incomeCategories, expenseCategories] = await Promise.all([
+        transactionsService.getTransactionsByCategory(tenantDB, 'income', dateFromStr),
+        transactionsService.getTransactionsByCategory(tenantDB, 'expense', dateFromStr)
+      ]);
 
       financialData = {
-        categories: transactionsByCategory,
+        categories: {
+          income: incomeCategories,
+          expense: expenseCategories
+        },
         cashFlow: await this.getCashFlowData(tenantDB, dateFromStr)
       };
     }

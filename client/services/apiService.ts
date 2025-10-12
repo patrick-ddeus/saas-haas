@@ -14,25 +14,20 @@ class ApiService {
     this.token = localStorage.getItem('access_token');
   }
 
-  setToken(token: string) {
-    this.token = token;
-    localStorage.setItem('access_token', token);
-  }
-
   private async request(endpoint: string, options: RequestInit = {}) {
-  const url = `${this.baseUrl}${endpoint}`;
-  // 👇 LEIA O TOKEN AQUI, DIRETAMENTE DO LOCALSTORAGE
-  const token = localStorage.getItem('access_token'); 
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    // Always get fresh token from localStorage
+    this.token = localStorage.getItem('access_token');
 
-  const config: RequestInit = {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      // 👇 USE A VARIÁVEL 'token' QUE ACABOU DE SER LIDA
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers,
-    },
-  };
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+        ...options.headers,
+      },
+    };
 
     try {
       const response = await fetch(url, config);
@@ -147,21 +142,26 @@ class ApiService {
     return this.request('/auth/me');
   }
 
-  // Dashboard
+  // Dashboard - Unified endpoint
+  async getDashboard() {
+    console.log('🔄 Requesting dashboard data from /api/dashboard');
+    return this.request('/dashboard');
+  }
+
+  // Dashboard specific methods
   async getDashboardMetrics() {
+    console.log('🔄 Requesting dashboard metrics from /api/dashboard/metrics');
     return this.request('/dashboard/metrics');
   }
 
-  async getFinancialData() {
-    return this.request('/dashboard/financeiro');
+  async getRecentActivity(limit: number = 10) {
+    console.log('🔄 Requesting recent activity from /api/dashboard/recent-activity');
+    return this.request(`/dashboard/recent-activity?limit=${limit}`);
   }
 
-  async getClientMetrics() {
-    return this.request('/dashboard/clientes');
-  }
-
-  async getProjectMetrics() {
-    return this.request('/dashboard/projetos');
+  async getChartData(period: string = '30d') {
+    console.log('🔄 Requesting chart data from /api/dashboard/chart-data');
+    return this.request(`/dashboard/chart-data?period=${period}`);
   }
 
   // Clients
@@ -364,15 +364,6 @@ class ApiService {
     return this.request('/invoices/stats/overview');
   }
 
-  // Dashboard - Recent Activity
-  async getRecentActivity(limit: number = 10) {
-    return this.request(`/dashboard/recent-activity?limit=${limit}`);
-  }
-
-  // Dashboard - Chart Data
-  async getChartData(period: string = '30d') {
-    return this.request(`/dashboard/chart-data?period=${period}`);
-  }
 
   // Notifications endpoints
   async getNotifications(params: any = {}) {

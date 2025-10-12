@@ -26,7 +26,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * while maintaining full functionality.
  */
 
-// Custom XAxis wrapper with default parameters instead of defaultProps
 const CustomXAxis = ({
   dataKey,
   stroke = "#6B7280",
@@ -47,7 +46,6 @@ const CustomXAxis = ({
   />
 );
 
-// Custom YAxis wrapper with default parameters instead of defaultProps
 const CustomYAxis = ({
   stroke = "#6B7280",
   tick = { fontSize: 12, fill: "#6B7280" },
@@ -64,64 +62,60 @@ const CustomYAxis = ({
   />
 );
 
-// Mock data for charts
-const monthlyFinancialData = [
-  { month: "Jan", receitas: 45000, despesas: 28000, saldo: 17000 },
-  { month: "Fev", receitas: 52000, despesas: 32000, saldo: 20000 },
-  { month: "Mar", receitas: 48000, despesas: 29000, saldo: 19000 },
-  { month: "Abr", receitas: 61000, despesas: 35000, saldo: 26000 },
-  { month: "Mai", receitas: 55000, despesas: 31000, saldo: 24000 },
-  { month: "Jun", receitas: 67000, despesas: 38000, saldo: 29000 },
-];
+/**
+ * INTERFACES PARA DADOS DOS GRÁFICOS
+ * ===================================
+ */
 
-const revenueByCategory = [
-  {
-    name: "Honorários Advocatícios",
-    value: 65,
-    amount: 42250,
-    color: "#10B981",
-  },
-  {
-    name: "Consultorias Jurídicas",
-    value: 20,
-    amount: 13000,
-    color: "#3B82F6",
-  },
-  { name: "Acordos e Mediações", value: 10, amount: 6500, color: "#8B5CF6" },
-  { name: "Custas Reembolsadas", value: 3, amount: 1950, color: "#F59E0B" },
-  { name: "Outros Serviços", value: 2, amount: 1300, color: "#6B7280" },
-];
+interface CategoryData {
+  categoryId: string;
+  category: string;
+  amount: number;
+  count: number;
+}
 
-const expensesByCategory = [
-  { name: "Salários", value: 45, amount: 14400, color: "#EF4444" },
-  { name: "Aluguel", value: 25, amount: 8000, color: "#F97316" },
-  { name: "Contas Básicas", value: 10, amount: 3200, color: "#84CC16" },
-  { name: "Material Escritório", value: 8, amount: 2560, color: "#06B6D4" },
-  { name: "Marketing", value: 7, amount: 2240, color: "#EC4899" },
-  { name: "Outros", value: 5, amount: 1600, color: "#6B7280" },
-];
+interface CashFlowData {
+  day: string;
+  income: number;
+  expense: number;
+  net: number;
+}
 
-const clientsByStatus = [
-  { status: "Em Contato", count: 18, color: "#3B82F6" },
-  { status: "Com Proposta", count: 12, color: "#F59E0B" },
-  { status: "Cliente Bem Sucedido", count: 25, color: "#10B981" },
-  { status: "Cliente Perdido", count: 8, color: "#EF4444" },
-];
+interface ProjectData {
+  status: string;
+  count: number;
+  totalBudget: number;
+}
 
-const clientsGrowth = [
-  { month: "Jan", novos: 8, ativos: 120 },
-  { month: "Fev", novos: 12, ativos: 127 },
-  { month: "Mar", novos: 6, ativos: 131 },
-  { month: "Abr", novos: 15, ativos: 142 },
-  { month: "Mai", novos: 9, ativos: 148 },
-  { month: "Jun", novos: 11, ativos: 156 },
-];
+interface ChartDataProps {
+  financial?: {
+    cashFlow: CashFlowData[];
+    categories: {
+      income: CategoryData[];
+      expense: CategoryData[];
+    };
+  };
+  projects?: ProjectData[];
+  tasks?: any[];
+}
 
 interface ChartsProps {
   className?: string;
+  chartData: ChartDataProps;
 }
 
-export function DashboardCharts({ className }: ChartsProps) {
+/**
+ * PALETAS DE CORES
+ * ================
+ */
+const COLORS_INCOME = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#6B7280"];
+const COLORS_EXPENSE = ["#EF4444", "#F97316", "#84CC16", "#06B6D4", "#EC4899", "#6B7280"];
+const COLORS_PROJECTS = ["#3B82F6", "#F59E0B", "#10B981", "#EF4444"];
+
+export function DashboardCharts({ className, chartData }: ChartsProps) {
+  /**
+   * HELPER: Formatação de moeda
+   */
   const formatCurrency = (value: number) => {
     try {
       if (typeof value !== 'number' || isNaN(value)) {
@@ -139,6 +133,9 @@ export function DashboardCharts({ className }: ChartsProps) {
     }
   };
 
+  /**
+   * HELPER: Tooltip customizado
+   */
   const CustomTooltip = ({ active, payload, label }: any) => {
     try {
       if (active && payload && Array.isArray(payload) && payload.length > 0) {
@@ -155,7 +152,7 @@ export function DashboardCharts({ className }: ChartsProps) {
                   entry.name.includes("Despesas") ||
                   entry.name.includes("Saldo"))
                     ? formatCurrency(entry.value)
-                    : `${entry.value} ${entry.name === "Clientes" ? "clientes" : entry.name === "Casos" ? "casos" : ""}`}
+                    : `${entry.value}`}
                 </p>
               );
             })}
@@ -169,6 +166,9 @@ export function DashboardCharts({ className }: ChartsProps) {
     }
   };
 
+  /**
+   * HELPER: Labels customizados para gráficos de pizza
+   */
   const renderCustomLabel = ({
     cx,
     cy,
@@ -177,7 +177,7 @@ export function DashboardCharts({ className }: ChartsProps) {
     outerRadius,
     percent,
   }: any) => {
-    if (percent < 0.05) return null; // Don't show labels for slices smaller than 5%
+    if (percent < 0.05) return null;
 
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -198,210 +198,251 @@ export function DashboardCharts({ className }: ChartsProps) {
     );
   };
 
+  // Verificação de segurança para evitar erros de acesso a propriedades undefined
+  if (!chartData || typeof chartData !== 'object') {
+    console.warn('Invalid chartData provided to DashboardCharts:', chartData);
+    return (
+      <div className={`grid gap-4 md:grid-cols-2 ${className}`}>
+        <Card className="md:col-span-2">
+          <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+            Dados do gráfico não disponíveis
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  /**
+   * TRANSFORMAÇÃO 1: Evolução Financeira (Cash Flow)
+   * =================================================
+   */
+  const financialEvolutionData = (chartData.financial?.cashFlow ?? []).map(item => ({
+    day: new Date(item.day).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+    receitas: item.income,
+    despesas: item.expense,
+    saldo: item.net,
+  }));
+
+  /**
+   * TRANSFORMAÇÃO 2: Receitas por Categoria (Simplificado)
+   * ======================================================
+   */
+  const revenueByCategory = (chartData.financial?.categories?.income ?? []).map((item, index) => ({
+    name: item.category,
+    value: item.amount, // ✅ 'value' agora é o valor monetário bruto
+    color: COLORS_INCOME[index % COLORS_INCOME.length],
+  }));
+
+  /**
+   * TRANSFORMAÇÃO 3: Despesas por Categoria (Simplificado)
+   * =======================================================
+   */
+  const expensesByCategory = (chartData.financial?.categories?.expense ?? []).map((item, index) => ({
+    name: item.category,
+    value: item.amount, // ✅ 'value' agora é o valor monetário bruto
+    color: COLORS_EXPENSE[index % COLORS_EXPENSE.length],
+  }));
+
+  /**
+   * TRANSFORMAÇÃO 4: Projetos por Status
+   * =====================================
+   */
+  const projectsByStatus = (chartData.projects ?? []).map((item, index) => ({
+    status: item.status,
+    count: item.count,
+    color: COLORS_PROJECTS[index % COLORS_PROJECTS.length],
+  }));
+
   return (
     <div className={`grid gap-4 md:grid-cols-2 ${className}`}>
-      {/* Financial Evolution Chart */}
+      {/* Evolução Financeira (Últimos 30 dias) */}
       <Card className="md:col-span-2">
         <CardHeader>
-          <CardTitle>Evolução Financeira</CardTitle>
+          <CardTitle>Evolução Financeira (Últimos 30 dias)</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyFinancialData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <CustomXAxis dataKey="month" />
-              <CustomYAxis tickFormatter={formatCurrency} width={80} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="receitas"
-                name="Receitas"
-                stroke="#10B981"
-                strokeWidth={3}
-                dot={{ fill: "#10B981", strokeWidth: 2, r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="despesas"
-                name="Despesas"
-                stroke="#EF4444"
-                strokeWidth={3}
-                dot={{ fill: "#EF4444", strokeWidth: 2, r: 4 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="saldo"
-                name="Saldo"
-                stroke="#3B82F6"
-                strokeWidth={3}
-                dot={{ fill: "#3B82F6", strokeWidth: 2, r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {financialEvolutionData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={financialEvolutionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <CustomXAxis dataKey="day" />
+                <CustomYAxis tickFormatter={formatCurrency} width={80} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="receitas"
+                  name="Receitas"
+                  stroke="#10B981"
+                  strokeWidth={3}
+                  dot={{ fill: "#10B981", strokeWidth: 2, r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="despesas"
+                  name="Despesas"
+                  stroke="#EF4444"
+                  strokeWidth={3}
+                  dot={{ fill: "#EF4444", strokeWidth: 2, r: 4 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="saldo"
+                  name="Saldo"
+                  stroke="#3B82F6"
+                  strokeWidth={3}
+                  dot={{ fill: "#3B82F6", strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Nenhum dado financeiro disponível para o período
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Revenue by Category */}
+      {/* Receitas por Categoria */}
       <Card>
         <CardHeader>
           <CardTitle>Receitas por Categoria</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={revenueByCategory}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={renderCustomLabel}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {revenueByCategory.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value, name) => [
-                  `${value}% (${formatCurrency(revenueByCategory.find((item) => item.name === name)?.amount || 0)})`,
-                  name,
-                ]}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-4 grid grid-cols-1 gap-2">
-            {revenueByCategory.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex items-center space-x-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
+          {revenueByCategory.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={revenueByCategory}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderCustomLabel}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {revenueByCategory.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
                   />
-                  <span>{item.name}</span>
-                </div>
-                <span className="font-medium">{item.value}%</span>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-4 grid grid-cols-1 gap-2">
+                {revenueByCategory.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span>{item.name}</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(item.value)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Nenhuma receita registrada
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Expenses by Category */}
+      {/* Despesas por Categoria */}
       <Card>
         <CardHeader>
           <CardTitle>Despesas por Categoria</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={expensesByCategory}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={renderCustomLabel}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {expensesByCategory.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value, name) => [
-                  `${value}% (${formatCurrency(expensesByCategory.find((item) => item.name === name)?.amount || 0)})`,
-                  name,
-                ]}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-4 grid grid-cols-1 gap-2">
-            {expensesByCategory.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex items-center space-x-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
+          {expensesByCategory.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={expensesByCategory}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderCustomLabel}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {expensesByCategory.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
                   />
-                  <span>{item.name}</span>
-                </div>
-                <span className="font-medium">{item.value}%</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Clients by Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Clientes Por Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={clientsByStatus}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <CustomXAxis
-                dataKey="status"
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <CustomYAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="Clientes" radius={[4, 4, 0, 0]}>
-                {clientsByStatus.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-4 grid grid-cols-1 gap-2">
+                {expensesByCategory.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span>{item.name}</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(item.value)}</span>
+                  </div>
                 ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+              </div>
+            </>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Nenhuma despesa registrada
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Clients Growth */}
-      <Card>
+      {/* Projetos por Status */}
+      <Card className="md:col-span-2">
         <CardHeader>
-          <CardTitle>Crescimento de Clientes</CardTitle>
+          <CardTitle>Projetos Por Status</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={clientsGrowth}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <CustomXAxis dataKey="month" />
-              <CustomYAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Area
-                type="monotone"
-                dataKey="ativos"
-                name="Clientes Ativos"
-                stackId="1"
-                stroke="#3B82F6"
-                fill="#3B82F6"
-                fillOpacity={0.6}
-              />
-              <Area
-                type="monotone"
-                dataKey="novos"
-                name="Novos Clientes"
-                stackId="2"
-                stroke="#10B981"
-                fill="#10B981"
-                fillOpacity={0.8}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {projectsByStatus.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={projectsByStatus}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <CustomXAxis
+                  dataKey="status"
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <CustomYAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Projetos" radius={[4, 4, 0, 0]}>
+                  {projectsByStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Nenhum projeto encontrado
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
