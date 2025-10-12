@@ -158,21 +158,35 @@ export function CashFlow() {
    * - Receitas totais do período
    * - Despesas totais do período
    * - Saldo atual (receitas - despesas)
-   * - Crescimento mensal
+   * - Crescimento mensal REAL (baseado em dados)
    * - Transações pendentes
    */
   const stats = useMemo(() => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    // Calcular datas para mês atual e anterior
+    const currentMonthStart = new Date(currentYear, currentMonth, 1);
+    const previousMonthStart = new Date(currentYear, currentMonth - 1, 1);
+    const previousMonthEnd = new Date(currentYear, currentMonth, 0);
 
     // Filtrar transações do mês atual
     const currentMonthTransactions = transactions.filter(t => {
       const transactionDate = new Date(t.date);
-      return transactionDate.getMonth() === currentMonth && 
+      return transactionDate >= currentMonthStart && 
+             transactionDate.getMonth() === currentMonth && 
              transactionDate.getFullYear() === currentYear;
     });
 
-    // Calcular totais
+    // Filtrar transações do mês anterior
+    const previousMonthTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate >= previousMonthStart && 
+             transactionDate <= previousMonthEnd;
+    });
+
+    // Calcular totais do mês atual
     const totalIncome = currentMonthTransactions
       .filter(t => t.type === 'income' && t.status === 'confirmed')
       .reduce((sum, t) => sum + t.amount, 0);
@@ -183,19 +197,42 @@ export function CashFlow() {
 
     const balance = totalIncome - totalExpenses;
 
+    // Calcular totais do mês anterior
+    const previousIncome = previousMonthTransactions
+      .filter(t => t.type === 'income' && t.status === 'confirmed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const previousExpenses = previousMonthTransactions
+      .filter(t => t.type === 'expense' && t.status === 'confirmed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const previousBalance = previousIncome - previousExpenses;
+
+    // Calcular crescimento real baseado no saldo
+    let growth = 0;
+    if (previousBalance !== 0) {
+      growth = ((balance - previousBalance) / Math.abs(previousBalance)) * 100;
+    } else if (balance > 0) {
+      growth = 100; // Se não havia saldo anterior e agora há saldo positivo = 100% crescimento
+    } else if (balance < 0 && previousBalance === 0) {
+      growth = -100; // Se não havia saldo e agora há prejuízo = -100%
+    }
+
     // Transações pendentes
     const pendingTransactions = transactions.filter(t => t.status === 'pending').length;
-
-    // Crescimento (mock - em produção seria calculado comparando com mês anterior)
-    const growth = 15.2; // Percentual de crescimento
 
     return {
       totalIncome,
       totalExpenses,
       balance,
       pendingTransactions,
-      growth,
+      growth: Number(growth.toFixed(1)), // Arredondar para 1 casa decimal
       transactionCount: currentMonthTransactions.length,
+      previousMonthData: {
+        income: previousIncome,
+        expenses: previousExpenses,
+        balance: previousBalance
+      }
     };
   }, [transactions]);
 
@@ -563,18 +600,27 @@ export function CashFlow() {
           </Card>
 
           {/* Card: Crescimento */}
-          <Card className="border-l-4 border-l-purple-500">
+          <Card className={`border-l-4 ${stats.growth >= 0 ? 'border-l-purple-500' : 'border-l-red-500'}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">📈 Crescimento</CardTitle>
-              <BarChart3 className="h-4 w-4 text-purple-600" />
+              <CardTitle className="text-sm font-medium">
+                {stats.growth >= 0 ? '📈 Crescimento' : '📉 Declínio'}
+              </CardTitle>
+              <BarChart3 className={`h-4 w-4 ${stats.growth >= 0 ? 'text-purple-600' : 'text-red-600'}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                +{stats.growth}%
+              <div className={`text-2xl font-bold ${stats.growth >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                {stats.growth >= 0 ? '+' : ''}{stats.growth}%
               </div>
               <p className="text-xs text-muted-foreground">
                 vs mês anterior
               </p>
+              {transactions.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.previousMonthData && (
+                    `Anterior: ${formatCurrency(stats.previousMonthData.balance)}`
+                  )}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
