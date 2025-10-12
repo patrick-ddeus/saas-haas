@@ -12,8 +12,30 @@ export function useTasks() {
       setIsLoading(true);
       setError(null);
       const response = await apiService.getTasks(params);
-      setTasks(response.tasks);
-      return response;
+      
+      // Transform snake_case to camelCase for frontend
+      const transformedTasks = response.tasks.map((task: any) => ({
+        ...task,
+        projectId: task.project_id,
+        projectTitle: task.project_title,
+        clientId: task.client_id,
+        clientName: task.client_name,
+        assignedTo: task.assigned_to,
+        startDate: task.start_date,
+        endDate: task.end_date,
+        estimatedHours: task.estimated_hours,
+        actualHours: task.actual_hours,
+        createdBy: task.created_by,
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+        isActive: task.is_active,
+        attachments: task.attachments || [], // Ensure attachments array exists
+        tags: task.tags || [], // Ensure tags array exists
+        subtasks: task.subtasks || [], // Ensure subtasks array exists
+      }));
+      
+      setTasks(transformedTasks);
+      return { ...response, tasks: transformedTasks };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load tasks';
       setError(errorMessage);

@@ -257,7 +257,7 @@ class ProjectsService {
         COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
         COALESCE(notes, '') as notes,
         COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
-        created_by VARCHAR NOT NULL,
+        created_by,
         to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
         is_active
@@ -324,7 +324,7 @@ class ProjectsService {
         COALESCE(assigned_to::jsonb, '[]'::jsonb) as assigned_to,
         COALESCE(notes, '') as notes,
         COALESCE(contacts::jsonb, '[]'::jsonb) as contacts,
-        created_by VARCHAR NOT NULL,
+        created_by,
         to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
         to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
         is_active
@@ -340,46 +340,47 @@ class ProjectsService {
    * Cria novo projeto
    */
   async createProject(tenantDB: TenantDatabase, projectData: CreateProjectData, createdBy: string): Promise<Project> {
-  await this.ensureTables(tenantDB);
+    await this.ensureTables(tenantDB);
 
-  // Validações explícitas para clareza
-  if (!projectData.title) throw new Error('Título é obrigatório');
-  if (!projectData.clientName) throw new Error('Nome do cliente é obrigatório');
-  if (!projectData.startDate) throw new Error('Data de início é obrigatória');
-  if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
-  if (!createdBy) throw new Error('Usuário criador não identificado');
+    // Validações explícitas para clareza
+    if (!projectData.title) throw new Error('Título é obrigatório');
+    if (!projectData.clientName) throw new Error('Nome do cliente é obrigatório');
+    if (!projectData.startDate) throw new Error('Data de início é obrigatória');
+    if (!projectData.dueDate) throw new Error('Data de vencimento é obrigatória');
+    if (!createdBy) throw new Error('Usuário criador não identificado');
 
-  /**
-   * ESTE OBJETO É A SOLUÇÃO DEFINITIVA.
-   * A ordem e a completude das propriedades aqui correspondem EXATAMENTE
-   * à ordem das colunas no seu arquivo `migration.sql`.
-   */
-  const data: Record<string, any> = {
-    // Colunas da tabela "projects" na ordem correta:
-    title: projectData.title,
-    description: projectData.description || null,
-    client_id: projectData.clientId || null,
-    client_name: projectData.clientName,
-    organization: projectData.organization || null,
-    address: projectData.address || null,
-    budget: projectData.budget ?? 0,
-    currency: projectData.currency || 'BRL',
-    status: projectData.status || 'contacted',
-    priority: projectData.priority || 'medium',
-    progress: projectData.progress ?? 0,
-    start_date: projectData.startDate,
-    due_date: projectData.dueDate,
-    completed_at: null, // Defina como nulo na criação
-    tags: projectData.tags || [],
-    assigned_to: projectData.assignedTo || [],
-    notes: projectData.notes || null,
-    contacts: projectData.contacts || [],
-    created_by: createdBy,
-  };
+    /**
+     * ORDEM EXATA das colunas conforme migration.sql:
+     * id (gerado automaticamente), title, description, client_id, client_name,
+     * organization, address, budget, currency, status, priority, progress,
+     * start_date, due_date, completed_at, tags, assigned_to, notes, contacts,
+     * created_by, is_active, created_at, updated_at
+     */
+    const data: Record<string, any> = {
+      title: projectData.title,
+      description: projectData.description || null,
+      client_id: projectData.clientId || null,
+      client_name: projectData.clientName,
+      organization: projectData.organization || null,
+      address: projectData.address || null,
+      budget: projectData.budget ?? null,
+      currency: projectData.currency || 'BRL',
+      status: projectData.status || 'contacted',
+      priority: projectData.priority || 'medium',
+      progress: projectData.progress ?? 0,
+      start_date: projectData.startDate,
+      due_date: projectData.dueDate,
+      completed_at: null,
+      tags: projectData.tags || [],
+      assigned_to: projectData.assignedTo || [],
+      notes: projectData.notes || null,
+      contacts: projectData.contacts || [],
+      created_by: createdBy,
+      // is_active, created_at, updated_at são preenchidos automaticamente pelo banco
+    };
 
-  // O helper agora receberá um objeto perfeitamente ordenado e completo.
-  return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
-}
+    return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
+  }
 
   /**
    * Atualiza projeto existente

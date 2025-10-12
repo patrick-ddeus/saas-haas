@@ -1,10 +1,10 @@
 
 -- CreateTable para Projetos (alinhado com schema Prisma)
 CREATE TABLE IF NOT EXISTS "projects" (
-    "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "title" VARCHAR NOT NULL,
     "description" TEXT,
-    "client_id" TEXT,
+    "client_id" UUID,
     "client_name" VARCHAR NOT NULL,
     "organization" VARCHAR,
     "address" TEXT,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS "projects" (
     "assigned_to" JSONB DEFAULT '[]'::jsonb,
     "notes" TEXT,
     "contacts" JSONB DEFAULT '[]'::jsonb,
-    "created_by" VARCHAR NOT NULL DEFAULT 'system',
+    "created_by" UUID NOT NULL,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP

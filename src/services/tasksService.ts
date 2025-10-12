@@ -277,7 +277,15 @@ class TasksService {
 
     // Adicionar campos opcionais apenas se fornecidos
     if (taskData.description) data.description = taskData.description;
-    if (taskData.projectId && taskData.projectId !== 'none') data.project_id = taskData.projectId;
+    if (taskData.projectId && taskData.projectId !== 'none') {
+      // Validar se é UUID válido antes de adicionar
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(taskData.projectId)) {
+        data.project_id = taskData.projectId;
+      } else {
+        console.warn('[TasksService] Invalid project_id (not UUID):', taskData.projectId, '- campo será omitido');
+      }
+    }
     if (taskData.projectTitle) data.project_title = taskData.projectTitle;
     if (taskData.clientId) data.client_id = taskData.clientId;
     if (taskData.clientName) data.client_name = taskData.clientName;
@@ -287,7 +295,7 @@ class TasksService {
     if (taskData.actualHours !== undefined) data.actual_hours = taskData.actualHours;
     if (taskData.notes) data.notes = taskData.notes;
     if (taskData.tags && taskData.tags.length > 0) data.tags = taskData.tags;
-    if (taskData.subtasks && taskData.subtasks.length > 0) data.subtasks = JSON.stringify(taskData.subtasks);
+    if (taskData.subtasks && taskData.subtasks.length > 0) data.subtasks = taskData.subtasks; // Enviar como array, não como string
 
     console.log('[TasksService] Creating task with data:', data);
     const result = await insertInTenantSchema<Task>(tenantDB, this.tableName, data);
@@ -319,7 +327,7 @@ class TasksService {
     if (updateData.progress !== undefined) data.progress = updateData.progress;
     if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
-    if (updateData.subtasks !== undefined) data.subtasks = JSON.stringify(updateData.subtasks);
+    if (updateData.subtasks !== undefined) data.subtasks = updateData.subtasks; // Enviar como array, não como string
 
     if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');

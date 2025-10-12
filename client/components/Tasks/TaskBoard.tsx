@@ -68,14 +68,20 @@ export function TaskBoard({
   const [pinnedTasks, setPinnedTasks] = useState<Set<string>>(new Set());
   const TASKS_PER_PAGE = 5;
   const getDaysUntilDue = (endDate: string) => {
-    const due = new Date(endDate);
-    const today = new Date();
-    const diffTime = due.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    if (!endDate) return 0;
+    try {
+      const due = new Date(endDate);
+      const today = new Date();
+      const diffTime = due.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch {
+      return 0;
+    }
   };
 
   const isOverdue = (endDate: string) => {
+    if (!endDate) return false;
     return getDaysUntilDue(endDate) < 0;
   };
 
@@ -92,9 +98,11 @@ export function TaskBoard({
     const endIndex = startIndex + TASKS_PER_PAGE;
 
     // ORDENAÇÃO: Novas tarefas aparecem no topo - mais recentes primeiro
-    const sortedTasks = [...tasks].sort((a, b) =>
-      new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime()
-    );
+    const sortedTasks = [...tasks].sort((a, b) => {
+      const dateA = a.createdAt || a.updatedAt || new Date(0).toISOString();
+      const dateB = b.createdAt || b.updatedAt || new Date(0).toISOString();
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
 
     // Separar tarefas pinadas (sempre no topo) das não pinadas
     const pinnedStageTasks = sortedTasks.filter(task => pinnedTasks.has(task.id));
@@ -377,9 +385,11 @@ export function TaskBoard({
                         )}
 
                         {/* Created date */}
-                        <div className="text-xs text-muted-foreground border-t pt-2">
-                          Criado: {new Date(task.createdAt).toLocaleDateString('pt-BR')}
-                        </div>
+                        {task.createdAt && (
+                          <div className="text-xs text-muted-foreground border-t pt-2">
+                            Criado: {new Date(task.createdAt).toLocaleDateString('pt-BR')}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
