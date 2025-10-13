@@ -33,21 +33,28 @@ export class DashboardController {
   }
 
   async getDashboard(req: TenantRequest, res: Response) {
-    console.log('✅ DASHBOARD ROUTE ACCESSED SUCCESSFULLY!');
-    console.log('📊 User:', req.user?.email);
-    console.log('🏢 TenantID:', req.user?.tenantId);
+    console.log('✅ [DashboardController] DASHBOARD ROUTE ACCESSED!');
+    console.log('📊 [DashboardController] User:', req.user?.email);
+    console.log('🏢 [DashboardController] TenantID:', req.user?.tenantId);
+    console.log('💼 [DashboardController] Account Type:', req.user?.accountType);
     
     try {
       if (!req.user || !req.tenantDB) {
-        console.log('❌ Authentication failed - no user or tenantDB');
+        console.log('❌ [DashboardController] Authentication failed - no user or tenantDB');
         return res.status(401).json({ error: 'Authentication required' });
       }
 
+      console.log('🔄 [DashboardController] Fetching dashboard data...');
+      
       const [metrics, recentActivity, chartData] = await Promise.all([
         dashboardService.getDashboardMetrics(req.tenantDB, req.user.id, req.user.accountType),
         dashboardService.getRecentActivity(req.tenantDB, req.user.id, 10),
         dashboardService.getChartData(req.tenantDB, req.user.accountType)
       ]);
+
+      console.log('✅ [DashboardController] Data fetched successfully');
+      console.log('📊 [DashboardController] Metrics:', JSON.stringify(metrics, null, 2));
+      console.log('📈 [DashboardController] Charts:', JSON.stringify(chartData, null, 2));
 
       const dashboardData = {
         metrics,
@@ -57,7 +64,7 @@ export class DashboardController {
 
       res.json(dashboardData);
     } catch (error) {
-      console.error('Dashboard error:', error);
+      console.error('❌ [DashboardController] Dashboard error:', error);
       res.status(500).json({
         error: 'Failed to fetch dashboard data',
         details: error instanceof Error ? error.message : 'Unknown error',

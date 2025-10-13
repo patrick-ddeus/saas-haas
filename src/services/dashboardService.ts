@@ -77,6 +77,8 @@ export class DashboardService {
    * Obtém métricas agregadas do dashboard
    */
   async getDashboardMetrics(tenantDB: TenantDatabase, userId: string | undefined, accountType: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL'): Promise<DashboardMetrics> {
+    console.log('📊 [DashboardService] Fetching metrics for account type:', accountType);
+    
     const [clientsStats, projectsStats, tasksStats] = await Promise.all([
       clientsService.getClientsStats(tenantDB),
       projectsService.getProjectsStats(tenantDB),
@@ -94,10 +96,15 @@ export class DashboardService {
     let publicationsStats;
 
     if (accountType === 'COMPOSTA' || accountType === 'GERENCIAL') {
+      console.log('💰 [DashboardService] Fetching financial data from transactions...');
+      
       const [transactionsStats, invoicesStats] = await Promise.all([
         transactionsService.getTransactionsStats(tenantDB),
         invoicesService.getInvoicesStats(tenantDB)
       ]);
+
+      console.log('📈 [DashboardService] Transactions stats:', transactionsStats);
+      console.log('📄 [DashboardService] Invoices stats:', invoicesStats);
 
       financialStats = {
         revenue: transactionsStats.totalIncome,
@@ -114,6 +121,10 @@ export class DashboardService {
           overdue: invoicesStats.overdue
         }
       };
+      
+      console.log('✅ [DashboardService] Financial stats calculated:', financialStats);
+    } else {
+      console.log('⚠️ [DashboardService] Account type SIMPLES - financial data disabled');
     }
 
     if (userId) {
@@ -201,26 +212,41 @@ export class DashboardService {
    * Obtém dados para gráficos do dashboard
    */
   async getChartData(tenantDB: TenantDatabase, accountType: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL', period: string = '30d') {
+    console.log('📊 [DashboardService] Getting chart data for period:', period);
+    
     const dateFrom = new Date();
     dateFrom.setDate(dateFrom.getDate() - 30);
     const dateFromStr = dateFrom.toISOString().split('T')[0];
+    
+    console.log('📅 [DashboardService] Date range from:', dateFromStr);
 
     let financialData = null;
 
     if (accountType === 'COMPOSTA' || accountType === 'GERENCIAL') {
+      console.log('💰 [DashboardService] Fetching categories and cash flow...');
+      
       // Busca categorias de receitas e despesas em paralelo
       const [incomeCategories, expenseCategories] = await Promise.all([
         transactionsService.getTransactionsByCategory(tenantDB, 'income', dateFromStr),
         transactionsService.getTransactionsByCategory(tenantDB, 'expense', dateFromStr)
       ]);
 
+      console.log('📈 [DashboardService] Income categories:', incomeCategories);
+      console.log('📉 [DashboardService] Expense categories:', expenseCategories);
+
+      const cashFlowData = await this.getCashFlowData(tenantDB, dateFromStr);
+      console.log('💵 [DashboardService] Cash flow data:', cashFlowData);
+
+      // ✅ SEMPRE retornar estrutura, mesmo vazia
       financialData = {
         categories: {
-          income: incomeCategories,
-          expense: expenseCategories
+          income: Array.isArray(incomeCategories) ? incomeCategories : [],
+          expense: Array.isArray(expenseCategories) ? expenseCategories : []
         },
-        cashFlow: await this.getCashFlowData(tenantDB, dateFromStr)
+        cashFlow: Array.isArray(cashFlowData) ? cashFlowData : []
       };
+      
+      console.log('✅ [DashboardService] Financial chart data prepared:', financialData);
     }
 
     return {
@@ -234,25 +260,30 @@ export class DashboardService {
    * Dados do fluxo de caixa para gráficos
    */
   private async getCashFlowData(tenantDB: TenantDatabase, dateFrom: string) {
-    const query = `
-      SELECT 
-        DATE(date) as day,
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-      FROM \${schema}.transactions
-      WHERE is_active = TRUE AND date >= $1::date
-      GROUP BY DATE(date)
-      ORDER BY day ASC
-    `;
+  const query = `
+    SELECT 
+      DATE(date) as day,
+      -- ✅ GARANTE QUE O TIPO DE DADO DE SAÍDA SEJA CONSISTENTE
+      SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END)::DECIMAL(15,2) as income,
+      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END)::DECIMAL(15,2) as expense
+    FROM \${schema}.transactions
+    WHERE is_active = TRUE AND date >= $1::date
+    GROUP BY DATE(date)
+    ORDER BY day ASC
+  `;
 
-    const result = await queryTenantSchema(tenantDB, query, [dateFrom]);
-    return result.map((row: any) => ({
-      day: row.day,
-      income: parseFloat(row.income || '0'),
-      expense: parseFloat(row.expense || '0'),
-      net: parseFloat(row.income || '0') - parseFloat(row.expense || '0')
-    }));
-  }
+  const result = await queryTenantSchema(tenantDB, query, [dateFrom]);
+  
+  // Adicione este log para a verificação final
+  console.log('Dados do Fluxo de Caixa (depois da query, antes do map):', JSON.stringify(result, null, 2));
+
+  return result.map((row: any) => ({
+    day: row.day,
+    income: parseFloat(row.income || '0'),
+    expense: parseFloat(row.expense || '0'),
+    net: parseFloat(row.income || '0') - parseFloat(row.expense || '0')
+  }));
+}
 
   /**
    * Dados de projetos para gráficos
@@ -264,7 +295,7 @@ export class DashboardService {
         COUNT(*) as count,
         COALESCE(SUM(budget), 0) as total_budget
       FROM \${schema}.projects
-      WHERE is_active = TRUE AND created_at >= $1::date
+      WHERE is_active = TRUE AND updated_at >= $1::date
       GROUP BY status
     `;
 
@@ -287,7 +318,7 @@ export class DashboardService {
         COUNT(*) as count,
         AVG(progress) as avg_progress
       FROM \${schema}.tasks
-      WHERE is_active = TRUE AND created_at >= $1::date
+      WHERE is_active = TRUE AND updated_at >= $1::date
       GROUP BY status, priority
     `;
 

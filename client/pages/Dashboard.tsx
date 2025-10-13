@@ -252,34 +252,38 @@ export function Dashboard() {
         </div>
       ) : metrics ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            title="💰 RECEITAS"
-            value={metrics.financial.revenue}
-            change={15} // Calculate from previous period
-            trend="up"
-            icon={DollarSign}
-            className="metric-revenue"
-          />
-          <MetricCard
-            title="📉 DESPESAS"
-            value={metrics.financial.expenses}
-            change={-8} // Calculate from previous period
-            trend="down"
-            icon={TrendingDown}
-            className="metric-expense"
-          />
-          <MetricCard
-            title="🏦 SALDO"
-            value={metrics.financial.balance}
-            change={23} // Calculate from previous period
-            trend={metrics.financial.balance >= 0 ? 'up' : 'down'}
-            icon={TrendingUp}
-            className="metric-balance-positive"
-          />
+          {metrics.financial && (
+            <>
+              <MetricCard
+                title="💰 RECEITAS"
+                value={metrics.financial.revenue}
+                change={15}
+                trend="up"
+                icon={DollarSign}
+                className="metric-revenue"
+              />
+              <MetricCard
+                title="📉 DESPESAS"
+                value={metrics.financial.expenses}
+                change={-8}
+                trend="down"
+                icon={TrendingDown}
+                className="metric-expense"
+              />
+              <MetricCard
+                title="🏦 SALDO"
+                value={metrics.financial.balance}
+                change={23}
+                trend={metrics.financial.balance >= 0 ? 'up' : 'down'}
+                icon={TrendingUp}
+                className="metric-balance-positive"
+              />
+            </>
+          )}
           <MetricCard
             title="👥 CLIENTES"
-            value={metrics.clients.total}
-            change={metrics.clients.thisMonth > 0 ? 12 : 0}
+            value={metrics.clients?.total || 0}
+            change={metrics.clients?.thisMonth > 0 ? 12 : 0}
             trend="up"
             icon={Users}
             format="number"
@@ -294,8 +298,8 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Charts Section */}
-      <DashboardCharts />
+      {/* Charts Section - SEMPRE renderiza com estrutura segura */}
+      <DashboardCharts chartData={chartData || { financial: null, projects: [], tasks: [] }} />
 
       {/* Activity Sections */}
       <div className="grid gap-4 md:grid-cols-3">

@@ -112,7 +112,15 @@ const COLORS_INCOME = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#6B7280"];
 const COLORS_EXPENSE = ["#EF4444", "#F97316", "#84CC16", "#06B6D4", "#EC4899", "#6B7280"];
 const COLORS_PROJECTS = ["#3B82F6", "#F59E0B", "#10B981", "#EF4444"];
 
-export function DashboardCharts({ className, chartData }: ChartsProps) {
+export function DashboardCharts({ className = '', chartData }: ChartsProps) {
+  console.log('📊 DashboardCharts rendered with data:', {
+    hasFinancial: !!chartData?.financial,
+    hasProjects: !!chartData?.projects,
+    hasTasks: !!chartData?.tasks,
+    financialCashFlowLength: chartData?.financial?.cashFlow?.length || 0,
+    incomeCategories: chartData?.financial?.categories?.income?.length || 0,
+    expenseCategories: chartData?.financial?.categories?.expense?.length || 0
+  });
   /**
    * HELPER: Formatação de moeda
    */
@@ -198,38 +206,37 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
     );
   };
 
-  // Verificação de segurança para evitar erros de acesso a propriedades undefined
+  // ✅ VALIDAÇÃO ROBUSTA - SEMPRE RENDERIZA, MESMO SEM DADOS
   if (!chartData || typeof chartData !== 'object') {
     console.warn('Invalid chartData provided to DashboardCharts:', chartData);
-    return (
-      <div className={`grid gap-4 md:grid-cols-2 ${className}`}>
-        <Card className="md:col-span-2">
-          <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-            Dados do gráfico não disponíveis
-          </CardContent>
-        </Card>
-      </div>
-    );
+    chartData = { financial: null, projects: [], tasks: [] };
   }
+
+  // ✅ Garantir estrutura mínima
+  const safeChartData = {
+    financial: chartData.financial || null,
+    projects: Array.isArray(chartData.projects) ? chartData.projects : [],
+    tasks: Array.isArray(chartData.tasks) ? chartData.tasks : []
+  };
 
   /**
    * TRANSFORMAÇÃO 1: Evolução Financeira (Cash Flow)
    * =================================================
    */
-  const financialEvolutionData = (chartData.financial?.cashFlow ?? []).map(item => ({
+  const financialEvolutionData = (safeChartData.financial?.cashFlow ?? []).map(item => ({
     day: new Date(item.day).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-    receitas: item.income,
-    despesas: item.expense,
-    saldo: item.net,
+    receitas: item.income || 0,
+    despesas: item.expense || 0,
+    saldo: item.net || 0,
   }));
 
   /**
    * TRANSFORMAÇÃO 2: Receitas por Categoria (Simplificado)
    * ======================================================
    */
-  const revenueByCategory = (chartData.financial?.categories?.income ?? []).map((item, index) => ({
-    name: item.category,
-    value: item.amount, // ✅ 'value' agora é o valor monetário bruto
+  const revenueByCategory = (safeChartData.financial?.categories?.income ?? []).map((item, index) => ({
+    name: item.category || 'Sem categoria',
+    value: item.amount || 0,
     color: COLORS_INCOME[index % COLORS_INCOME.length],
   }));
 
@@ -237,9 +244,9 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
    * TRANSFORMAÇÃO 3: Despesas por Categoria (Simplificado)
    * =======================================================
    */
-  const expensesByCategory = (chartData.financial?.categories?.expense ?? []).map((item, index) => ({
-    name: item.category,
-    value: item.amount, // ✅ 'value' agora é o valor monetário bruto
+  const expensesByCategory = (safeChartData.financial?.categories?.expense ?? []).map((item, index) => ({
+    name: item.category || 'Sem categoria',
+    value: item.amount || 0,
     color: COLORS_EXPENSE[index % COLORS_EXPENSE.length],
   }));
 
@@ -247,9 +254,9 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
    * TRANSFORMAÇÃO 4: Projetos por Status
    * =====================================
    */
-  const projectsByStatus = (chartData.projects ?? []).map((item, index) => ({
-    status: item.status,
-    count: item.count,
+  const projectsByStatus = (safeChartData.projects ?? []).map((item, index) => ({
+    status: item.status || 'Sem status',
+    count: item.count || 0,
     color: COLORS_PROJECTS[index % COLORS_PROJECTS.length],
   }));
 
@@ -261,8 +268,8 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
           <CardTitle>Evolução Financeira (Últimos 30 dias)</CardTitle>
         </CardHeader>
         <CardContent>
-          {financialEvolutionData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={300}>
+            {financialEvolutionData && financialEvolutionData.length > 0 ? (
               <LineChart data={financialEvolutionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <CustomXAxis dataKey="day" />
@@ -294,12 +301,14 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
                   dot={{ fill: "#3B82F6", strokeWidth: 2, r: 4 }}
                 />
               </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              Nenhum dado financeiro disponível para o período
-            </div>
-          )}
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="text-muted-foreground">
+                  Nenhum dado financeiro para exibir no período.
+                </span>
+              </div>
+            )}
+          </ResponsiveContainer>
         </CardContent>
       </Card>
 
@@ -309,50 +318,52 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
           <CardTitle>Receitas por Categoria</CardTitle>
         </CardHeader>
         <CardContent>
-          {revenueByCategory.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={revenueByCategory}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={renderCustomLabel}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {revenueByCategory.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                {revenueByCategory.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span>{item.name}</span>
-                    </div>
-                    <span className="font-medium">{formatCurrency(item.value)}</span>
-                  </div>
-                ))}
+          <ResponsiveContainer width="100%" height={300}>
+            {revenueByCategory.length > 0 ? (
+              <PieChart>
+                <Pie
+                  data={revenueByCategory}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={renderCustomLabel}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {revenueByCategory.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                />
+              </PieChart>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="text-muted-foreground">
+                  Nenhuma receita registrada.
+                </span>
               </div>
-            </>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              Nenhuma receita registrada
+            )}
+          </ResponsiveContainer>
+          {revenueByCategory.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              {revenueByCategory.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span>{item.name}</span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(item.value)}</span>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -364,50 +375,52 @@ export function DashboardCharts({ className, chartData }: ChartsProps) {
           <CardTitle>Despesas por Categoria</CardTitle>
         </CardHeader>
         <CardContent>
-          {expensesByCategory.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={expensesByCategory}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={renderCustomLabel}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {expensesByCategory.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                {expensesByCategory.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span>{item.name}</span>
-                    </div>
-                    <span className="font-medium">{formatCurrency(item.value)}</span>
-                  </div>
-                ))}
+          <ResponsiveContainer width="100%" height={300}>
+            {expensesByCategory.length > 0 ? (
+              <PieChart>
+                <Pie
+                  data={expensesByCategory}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={renderCustomLabel}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {expensesByCategory.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                />
+              </PieChart>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="text-muted-foreground">
+                  Nenhuma despesa registrada.
+                </span>
               </div>
-            </>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              Nenhuma despesa registrada
+            )}
+          </ResponsiveContainer>
+          {expensesByCategory.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              {expensesByCategory.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span>{item.name}</span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(item.value)}</span>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

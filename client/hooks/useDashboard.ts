@@ -84,23 +84,23 @@ export function useDashboard() {
       setError(null);
       
       console.log('🔄 Loading dashboard data...');
-      const response = await apiService.getDashboard();
+      // ✅ Usar endpoint completo correto
+      const response = await apiService.get('/api/dashboard');
       
       console.log('📊 Dashboard response received:', response);
       
+      // ✅ response do axios já vem em response.data
+      const apiData = response;
+      
       // Validate response structure
-      if (!response || typeof response !== 'object') {
+      if (!apiData || typeof apiData !== 'object') {
         throw new Error('Invalid response format');
       }
       
       // Extract data from unified response
-      const metricsData = response.metrics || getDefaultMetrics();
-      const chartData = response.charts || {
-        financial: { cashFlow: [], categories: { income: [], expense: [] } },
-        projects: [],
-        tasks: []
-      };
-      const activityData = response.recentActivity || [];
+      const metricsData = apiData.metrics || getDefaultMetrics();
+      const chartData = apiData.charts || null;
+      const activityData = apiData.recentActivity || [];
       
       // Ensure all required properties exist
       const validatedMetrics = {
@@ -111,12 +111,24 @@ export function useDashboard() {
         publications: metricsData.publications
       };
       
+      // ✅ VALIDAR chartData antes de setar
+      const validatedChartData = chartData && typeof chartData === 'object' ? {
+        financial: chartData.financial || null,
+        projects: Array.isArray(chartData.projects) ? chartData.projects : [],
+        tasks: Array.isArray(chartData.tasks) ? chartData.tasks : []
+      } : null;
+      
       setMetrics(validatedMetrics);
-      setChartData(chartData);
+      setChartData(validatedChartData);
       setRecentActivity(Array.isArray(activityData) ? activityData : []);
       
-      console.log('✅ Dashboard data loaded successfully');
-      return { metrics: validatedMetrics, charts: chartData, recentActivity: activityData };
+      console.log('✅ Dashboard data loaded successfully', {
+        hasMetrics: !!validatedMetrics,
+        hasCharts: !!validatedChartData,
+        activityCount: activityData.length
+      });
+      
+      return { metrics: validatedMetrics, charts: validatedChartData, recentActivity: activityData };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
       setError(errorMessage);
@@ -125,11 +137,7 @@ export function useDashboard() {
       // Set default data to prevent rendering errors
       const defaultMetrics = getDefaultMetrics();
       setMetrics(defaultMetrics);
-      setChartData({
-        financial: { cashFlow: [], categories: { income: [], expense: [] } },
-        projects: [],
-        tasks: []
-      });
+      setChartData(null);
       setRecentActivity([]);
       return { metrics: defaultMetrics, charts: null, recentActivity: [] };
     } finally {
