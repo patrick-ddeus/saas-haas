@@ -5,13 +5,11 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "moduleDetection": "force",
     "noEmit": true,
+    "noEmitOnError": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "jsx": "react-jsx",
@@ -19,7 +17,7 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
 
-    /* Linting - TUDO DESLIGADO PARA DEPLOY */
+    /* ⚙️ Desativando todas as validações estritas */
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -34,7 +32,7 @@
     "useUnknownInCatchVariables": false,
     "exactOptionalPropertyTypes": false,
 
-    /* Path mapping */
+    /* 🔗 Mapeamento de caminhos */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./client/*"],
