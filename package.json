@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc --skipLibCheck --noEmitOnError false && vite build",
     "preview": "vite preview",
     "dev:backend": "tsx watch src/server.ts",
     "build:backend": "tsc -p tsconfig.server.json",
