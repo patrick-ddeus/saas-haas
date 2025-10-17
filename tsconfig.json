@@ -9,15 +9,10 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true,
-    "noEmitOnError": false,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-
-    /* ⚙️ Desativando todas as validações estritas */
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -29,10 +24,8 @@
     "strictBindCallApply": false,
     "strictFunctionTypes": false,
     "strictPropertyInitialization": false,
-    "useUnknownInCatchVariables": false,
-    "exactOptionalPropertyTypes": false,
-
-    /* 🔗 Mapeamento de caminhos */
+    "allowUnusedLabels": true,
+    "allowUnreachableCode": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./client/*"],
@@ -47,8 +40,7 @@
     "server/**/*",
     "shared/**/*",
     "admin/**/*",
-    "vite.config.ts",
-    "vite.config.server.ts"
+    "vite.config.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
