@@ -39,8 +39,8 @@ const dealSchema = z.object({
   mobile: z.string().optional(), // Agora opcional no frontend
   address: z.string().optional(),
   budget: z.number().min(0).optional(),
-  currency: z.enum(['BRL', 'USD', 'EUR']).optional(),
-  stage: z.enum(['contacted', 'proposal', 'won', 'lost']),
+  currency: z.enum([ 'BRL', 'USD', 'EUR' ]).optional(),
+  stage: z.enum([ 'contacted', 'proposal', 'won', 'lost' ]),
   description: z.string().optional(),
 });
 
@@ -87,9 +87,9 @@ export function DealForm({
   onSubmit,
   isEditing = false
 }: DealFormProps) {
-  const [tags, setTags] = useState<string[]>(deal?.tags || []);
-  const [newTag, setNewTag] = useState('');
-  const [selectedExistingTag, setSelectedExistingTag] = useState('');
+  const [ tags, setTags ] = useState<string[]>(deal?.tags || []);
+  const [ newTag, setNewTag ] = useState('');
+  const [ selectedExistingTag, setSelectedExistingTag ] = useState('');
 
   const form = useForm<DealFormData>({
     resolver: zodResolver(dealSchema),
@@ -118,7 +118,7 @@ export function DealForm({
         mobile: deal.mobile || '',
         address: deal.address || '',
         budget: deal.budget || 0,
-        currency: deal.currency || 'BRL',
+        // currency: deal.currency || 'BRL',
         stage: deal.stage || 'contacted',
         description: deal.description || '',
       });
@@ -139,7 +139,7 @@ export function DealForm({
       setTags([]);
       setSelectedExistingTag('');
     }
-  }, [deal, initialStage, form]);
+  }, [ deal, initialStage, form ]);
 
   const handleClose = () => {
     form.reset();
@@ -162,7 +162,7 @@ export function DealForm({
 
   const addTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
+      setTags([ ...tags, newTag.trim() ]);
       setNewTag('');
     }
   };
@@ -369,7 +369,7 @@ export function DealForm({
                     size="sm"
                     onClick={() => {
                       if (!tags.includes(selectedExistingTag)) {
-                        setTags([...tags, selectedExistingTag]);
+                        setTags([ ...tags, selectedExistingTag ]);
                         setSelectedExistingTag('');
                       }
                     }}

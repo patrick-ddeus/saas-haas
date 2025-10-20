@@ -6,6 +6,7 @@ export interface Project {
   clientId?: string;
   organization?: string;
   contacts: ProjectContact[];
+  files?: Array<any>
   address?: string;
   budget?: number;
   currency: 'BRL' | 'USD' | 'EUR';

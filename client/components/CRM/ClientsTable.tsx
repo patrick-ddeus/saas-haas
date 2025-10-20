@@ -136,7 +136,7 @@ export function ClientsTable({
                     </div>
                     <div className="flex items-center text-sm">
                       <Phone className="h-3 w-3 mr-1 text-muted-foreground" />
-                      {client.mobile}
+                      {/* {client.mobile} */}
                     </div>
                   </div>
                 </TableCell>

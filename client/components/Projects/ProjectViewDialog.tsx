@@ -339,7 +339,7 @@ export function ProjectViewDialog({
               <div className="space-y-2">
                 {project.attachments.map((attachment, index) => (
                   <div key={index} className="flex items-center justify-between p-2 border rounded">
-                    <span className="text-sm">{attachment}</span>
+                    <span className="text-sm">{attachment.name}</span>
                     <Button variant="ghost" size="sm">
                       Download
                     </Button>
@@ -356,7 +356,8 @@ export function ProjectViewDialog({
               <div>
                 <h3 className="text-lg font-semibold mb-3 flex items-center">
                   <FileText className="h-5 w-5 mr-2" />
-                  Documentos do Projeto ({project.files.length})
+                  Documentos do Projeto
+                  {/* ({project.files.length}) */}
                 </h3>
                 {/* COMENTÁRIO IMPLEMENTAÇÃO:
                     Esta seção só é visível quando há documentos anexados ao projeto.

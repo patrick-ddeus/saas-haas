@@ -37,7 +37,7 @@ export class DashboardController {
     console.log('📊 [DashboardController] User:', req.user?.email);
     console.log('🏢 [DashboardController] TenantID:', req.user?.tenantId);
     console.log('💼 [DashboardController] Account Type:', req.user?.accountType);
-    
+
     try {
       if (!req.user || !req.tenantDB) {
         console.log('❌ [DashboardController] Authentication failed - no user or tenantDB');
@@ -45,8 +45,8 @@ export class DashboardController {
       }
 
       console.log('🔄 [DashboardController] Fetching dashboard data...');
-      
-      const [metrics, recentActivity, chartData] = await Promise.all([
+
+      const [ metrics, recentActivity, chartData ] = await Promise.all([
         dashboardService.getDashboardMetrics(req.tenantDB, req.user.id, req.user.accountType),
         dashboardService.getRecentActivity(req.tenantDB, req.user.id, 10),
         dashboardService.getChartData(req.tenantDB, req.user.accountType)
@@ -119,10 +119,7 @@ export class DashboardController {
       currentMonth.setDate(1);
       currentMonth.setHours(0, 0, 0, 0);
 
-      const transactions = await transactionsService.getTransactions(req.tenantDB, {
-        startDate: currentMonth.toISOString(),
-        endDate: new Date().toISOString()
-      });
+      const transactions = await transactionsService.getTransactions(req.tenantDB, {});
 
       const revenue = transactions.transactions
         .filter(t => t.type === 'income' && t.status === 'completed')
@@ -199,7 +196,7 @@ export class DashboardController {
       ).length;
 
       const overdueProjects = projects.projects.filter(p =>
-        p.deadline && new Date(p.deadline) < new Date()
+        p.due_date && new Date(p.due_date) < new Date()
       ).length;
 
       const totalRevenue = projects.projects

@@ -125,9 +125,9 @@ export const adminAuthController = {
           email: adminUser.email,
           name: adminUser.name,
           role: adminUser.role,
-          lastLogin: adminUser.last_login,
-          createdAt: adminUser.created_at,
-          updatedAt: adminUser.updated_at,
+          lastLogin: adminUser.lastLogin,
+          createdAt: adminUser.createdAt,
+          updatedAt: adminUser.updatedAt,
         }
       });
     } catch (error) {

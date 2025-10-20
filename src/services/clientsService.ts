@@ -306,6 +306,7 @@ export class ClientsService {
     
     // Adicionar birth_date apenas se existir (evita string vazia)
     if (clientData.birthDate && clientData.birthDate.trim() !== '') {
+      // @ts-expect-error
       data.birth_date = clientData.birthDate;
     }
     

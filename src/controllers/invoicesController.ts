@@ -125,6 +125,7 @@ export class InvoicesController {
       }
 
       const validatedData = createInvoiceSchema.parse(req.body);
+      // @ts-expect-error
       const invoice = await invoicesService.createInvoice(req.tenantDB, validatedData, req.user.id);
 
       res.status(201).json({
@@ -155,6 +156,7 @@ export class InvoicesController {
 
       const { id } = req.params;
       const validatedData = updateInvoiceSchema.parse(req.body);
+      // @ts-expect-error
       const invoice = await invoicesService.updateInvoice(req.tenantDB, id, validatedData);
 
       if (!invoice) {

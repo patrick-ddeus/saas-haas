@@ -2,7 +2,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { database } from '../config/database';
-
+import ms, { StringValue } from 'ms'
 export class AuthService {
   private accessTokenSecret = process.env.JWT_ACCESS_SECRET || 'dev-secret-change-in-production';
   private refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-in-production';
@@ -10,10 +10,10 @@ export class AuthService {
   constructor() {
     // SEGURANÇA CRÍTICA: Fail hard em produção com secrets default
     if (process.env.NODE_ENV === 'production') {
-      if (this.accessTokenSecret === 'dev-secret-change-in-production' || 
-          this.refreshTokenSecret === 'dev-refresh-secret-change-in-production' ||
-          !process.env.JWT_ACCESS_SECRET || 
-          !process.env.JWT_REFRESH_SECRET) {
+      if (this.accessTokenSecret === 'dev-secret-change-in-production' ||
+        this.refreshTokenSecret === 'dev-refresh-secret-change-in-production' ||
+        !process.env.JWT_ACCESS_SECRET ||
+        !process.env.JWT_REFRESH_SECRET) {
         const errorMsg = '🚨 CRITICAL SECURITY ERROR: JWT secrets must be set in production! Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET environment variables.';
         console.error(errorMsg);
         throw new Error(errorMsg);
@@ -40,19 +40,19 @@ export class AuthService {
       }),
     };
 
-    const accessToken = jwt.sign(payload, this.accessTokenSecret, { 
-      expiresIn: process.env.JWT_ACCESS_EXPIRES || '24h',
-      issuer: 'legalsaas',
-      audience: 'legalsaas-users'
-    });
-    
-    const refreshToken = jwt.sign(payload, this.refreshTokenSecret, { 
-      expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d',
+    const accessToken = jwt.sign(payload, this.accessTokenSecret, {
+      expiresIn: process.env.JWT_ACCESS_EXPIRES as StringValue || '24H',
       issuer: 'legalsaas',
       audience: 'legalsaas-users'
     });
 
-    // Store refresh token in database
+
+    const refreshToken = jwt.sign(payload, this.refreshTokenSecret, {
+      expiresIn: process.env.JWT_REFRESH_EXPIRES as StringValue || '7D',
+      issuer: 'legalsaas',
+      audience: 'legalsaas-users'
+    });
+
     const tokenHash = await bcrypt.hash(refreshToken, 10);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -92,7 +92,7 @@ export class AuthService {
       // Get all active refresh tokens for the user and compare
       const userId = (decoded as any).userId;
       const userTokens = await database.getActiveRefreshTokensForUser(userId);
-      
+
       let isValidToken = false;
       for (const storedToken of userTokens) {
         if (await bcrypt.compare(token, storedToken.tokenHash)) {
@@ -100,7 +100,7 @@ export class AuthService {
           break;
         }
       }
-      
+
       if (!isValidToken) {
         throw new Error('Refresh token not found or expired');
       }
@@ -113,7 +113,7 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string) {
     const decoded = await this.verifyRefreshToken(refreshToken);
-    
+
     // Get fresh user data
     const user = await database.findUserByEmail(decoded.email);
     if (!user || !user.isActive) {
@@ -123,7 +123,7 @@ export class AuthService {
     // Revoke old refresh token by finding the matching one
     const userId = (decoded as any).userId;
     const userTokens = await database.getActiveRefreshTokensForUser(userId);
-    
+
     for (const storedToken of userTokens) {
       if (await bcrypt.compare(refreshToken, storedToken.tokenHash)) {
         await database.revokeRefreshTokenById(storedToken.id);
@@ -133,20 +133,20 @@ export class AuthService {
 
     // Generate new tokens
     const tokens = await this.generateTokens(user);
-    
+
     // Clean user object to remove BigInt values
     const cleanUser = {
       id: user.id,
       email: user.email,
       name: user.name,
-      accountType: user.accountType || user.account_type,
-      tenantId: user.tenantId || user.tenant_id,
+      accountType: user.accountType,
+      tenantId: user.tenantId,
       isActive: user.isActive,
       lastLogin: user.lastLogin,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
-    
+
     return { user: cleanUser, tokens };
   }
 
@@ -165,7 +165,7 @@ export class AuthService {
 
   async loginUser(email: string, password: string) {
     const user = await database.findUserByEmail(email);
-    
+
     if (!user) {
       // Use a generic error to prevent email enumeration
       throw new Error('Invalid credentials');
@@ -176,17 +176,20 @@ export class AuthService {
     }
 
     // Verificar se o tenant está ativo - OTIMIZADO
-    const tenantId = user.tenantId || user.tenant_id;
-    if (tenantId) {
-      const tenant = await database.getTenantById(tenantId);
+    const tenantId = user.tenantId;
 
-      if (!tenant) {
-        throw new Error('Tenant not found');
-      }
+    if (!tenantId) {
+      throw new Error('Tenant id not found');
+    }
 
-      if (!tenant.isActive) {
-        throw new Error('Renove Sua Conta ou Entre em contato com o Administrador do Sistema');
-      }
+    const tenant = await database.getTenantById(tenantId);
+
+    if (!tenant) {
+      throw new Error('Tenant not found');
+    }
+
+    if (!tenant.isActive) {
+      throw new Error('Renove Sua Conta ou Entre em contato com o Administrador do Sistema');
     }
 
     const isValidPassword = await this.verifyPassword(password, user.password);
@@ -198,26 +201,27 @@ export class AuthService {
     await database.updateUserLastLogin(user.id);
 
     const tokens = await this.generateTokens(user);
-    
+
     // Clean user object to remove BigInt and password
     const cleanUser = {
       id: user.id,
       email: user.email,
       name: user.name,
-      accountType: user.accountType || user.account_type,
-      tenantId: user.tenantId || user.tenant_id,
+      accountType: user.accountType,
+      tenantId: user.tenantId,
       isActive: user.isActive,
       lastLogin: user.lastLogin,
+      tenant: tenant,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
-    
+
     return { user: cleanUser, tokens };
   }
 
   async loginAdmin(email: string, password: string) {
     const admin = await database.findAdminByEmail(email);
-    
+
     if (!admin) {
       throw new Error('Invalid admin credentials');
     }
@@ -235,32 +239,32 @@ export class AuthService {
     await database.updateAdminLastLogin(admin.id);
 
     const tokens = await this.generateTokens(admin);
-    
+
     // Remove password from response
     const { password: _, ...adminWithoutPassword } = admin;
-    
+
     return { user: adminWithoutPassword, tokens };
   }
 
   async registerUser(email: string, password: string, name: string, key: string) {
     console.log('=== STARTING USER REGISTRATION ===');
     console.log('Registration data:', { email, name, keyPreview: key.substring(0, 8) + '...' });
-    
+
     // Validate registration key
     const validKeys = await database.findValidRegistrationKeys();
     console.log('Available registration keys:', validKeys.length);
     console.log('Looking for key:', key.substring(0, 8) + '...');
-    
+
     let registrationKey = null;
-    
+
     // Try to find a matching key by comparing the plain key with stored hashes
     for (const validKey of validKeys) {
       try {
         console.log('Comparing with key ID:', validKey.id, 'hash preview:', validKey.keyHash ? validKey.keyHash.substring(0, 10) + '...' : 'null');
-        
+
         // Use the correct field name based on Prisma schema
         const keyHashField = validKey.keyHash;
-        
+
         if (keyHashField && await bcrypt.compare(key, keyHashField)) {
           console.log('Key match found for ID:', validKey.id);
           registrationKey = validKey;
@@ -274,9 +278,9 @@ export class AuthService {
 
     if (!registrationKey) {
       console.log('Registration key not found. Provided key:', key.substring(0, 8) + '...');
-      console.log('Available key hashes:', validKeys.map(k => ({ 
-        id: k.id, 
-        hashPreview: k.keyHash?.substring(0, 10) + '...' 
+      console.log('Available key hashes:', validKeys.map(k => ({
+        id: k.id,
+        hashPreview: k.keyHash?.substring(0, 10) + '...'
       })));
       throw new Error('Invalid or expired registration key');
     }
@@ -301,10 +305,10 @@ export class AuthService {
     }
 
     const hashedPassword = await this.hashPassword(password);
-    
+
     // Use existing tenant (tenantId is now required) - OTIMIZADO
     const tenant = await database.getTenantById(registrationKey.tenantId);
-    
+
     if (!tenant) {
       console.error('Associated tenant not found:', registrationKey.tenantId);
       throw new Error('Associated tenant not found');
@@ -342,19 +346,19 @@ export class AuthService {
     });
 
     const user = await database.createUser(userData);
-    
+
     console.log('User created successfully:', {
       id: user.id,
       email: user.email,
-      tenantId: user.tenantId || user.tenant_id,
-      accountType: user.accountType || user.account_type,
+      tenantId: user.tenantId,
+      accountType: user.accountType,
       userObject: user
     });
 
     // Update registration key usage
     const currentUsedLogs = registrationKey.usedLogs;
     const usedLogsArray = currentUsedLogs ? (typeof currentUsedLogs === 'string' ? JSON.parse(currentUsedLogs) : currentUsedLogs) : [];
-    
+
     await database.updateRegistrationKeyUsage(registrationKey.id, {
       usesLeft: registrationKey.usesLeft - 1,
       usedLogs: [
@@ -368,29 +372,29 @@ export class AuthService {
     });
 
     const tokens = await this.generateTokens(user);
-    
+
     // Clean user object to remove BigInt and password
     const cleanUser = {
       id: user.id,
       email: user.email,
       name: user.name,
-      accountType: user.accountType || user.account_type,
-      tenantId: user.tenantId || user.tenant_id,
+      accountType: user.accountType,
+      tenantId: user.tenantId,
       isActive: user.isActive,
       lastLogin: user.lastLogin,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
-    
+
     console.log('Registration completed successfully for:', {
       userId: user.id,
       email: user.email,
       tenantId: user.tenantId,
       accountType: user.accountType
     });
-    
+
     console.log('=== USER REGISTRATION COMPLETED ===');
-    
+
     return { user: cleanUser, tokens, isNewTenant: false };
   }
 }

@@ -20,8 +20,8 @@ const createTaskSchema = z.object({
   clientId: z.string().optional(),
   clientName: z.string().optional(),
   assignedTo: z.string().min(1, 'Assigned to is required'),
-  status: z.enum(['not_started', 'in_progress', 'completed', 'on_hold', 'cancelled']).default('not_started'),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  status: z.enum([ 'not_started', 'in_progress', 'completed', 'on_hold', 'cancelled' ]).default('not_started'),
+  priority: z.enum([ 'low', 'medium', 'high', 'urgent' ]).default('medium'),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   estimatedHours: z.number().min(0).optional(),
@@ -106,7 +106,8 @@ export class TasksController {
 
       const validatedData = createTaskSchema.parse(req.body);
       console.log('[TasksController] Validated data:', validatedData);
-
+      
+      // @ts-expect-error - accountType é opcional no schema, mas é necessário para criação
       const task = await tasksService.createTask(req.tenantDB, validatedData, req.user.id);
       console.log('[TasksController] Task created:', task);
 

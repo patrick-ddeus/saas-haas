@@ -116,7 +116,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
       name: client?.name || '',
       organization: client?.organization || '',
       email: client?.email || '',
-      mobile: client?.mobile || '',
+      // mobile: client?.mobile || '',
       country: client?.country || 'BR',
       state: client?.state || '',
       address: client?.address || '',
@@ -149,7 +149,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
         name: client.name || '',
         organization: client.organization || '',
         email: client.email || '',
-        mobile: client.mobile || '',
+        // mobile: client.mobile || '',
         country: client.country || 'BR',
         state: client.state || '',
         address: client.address || '',
@@ -176,7 +176,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
   }, [client, form]);
 
   const handleSubmit = (data: ClientFormData) => {
-    onSubmit({ ...data, tags });
+    onSubmit({ ...data });
     onOpenChange(false);
     form.reset();
     setTags([]);

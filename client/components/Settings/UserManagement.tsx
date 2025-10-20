@@ -29,141 +29,141 @@ import { User, UserRole } from '@/types/settings';
 // SISTEMA DE 3 TIPOS DE CONTA IMPLEMENTADO
 // Conforme solicitado: Conta Simples, Conta Composta, Conta Gerencial
 const mockRoles: UserRole[] = [
-  {
-    id: '1',
-    name: 'Conta Simples',
-    description: 'Acesso apenas ao CRM e áreas básicas do sistema',
-    permissions: [
-      // CRM - Acesso total
-      { module: 'crm', action: 'admin', granted: true },
-      // Dashboard - SEM informações financeiras (receitas, despesas, saldo)
-      { module: 'dashboard', action: 'read_basic', granted: true },
-      { module: 'dashboard', action: 'read_financial', granted: false },
-      // Projetos - Acesso total
-      { module: 'projetos', action: 'admin', granted: true },
-      // Tarefas - Acesso total
-      { module: 'tarefas', action: 'admin', granted: true },
-      // Cobrança - Acesso total
-      { module: 'cobranca', action: 'admin', granted: true },
-      // Fluxo de Caixa - SEM acesso
-      { module: 'fluxo-caixa', action: 'read', granted: false },
-      // Configurações - Apenas Notificações e Perfil
-      { module: 'configuracoes', action: 'read_basic', granted: true },
-      { module: 'configuracoes', action: 'admin', granted: false },
-    ],
-    isSystem: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'Conta Composta',
-    description: 'Acesso ao CRM + Fluxo de Caixa (Dashboard completo)',
-    permissions: [
-      // Dashboard - Acesso completo (incluindo informações financeiras)
-      { module: 'dashboard', action: 'admin', granted: true },
-      // CRM - Acesso total
-      { module: 'crm', action: 'admin', granted: true },
-      // Projetos - Acesso total
-      { module: 'projetos', action: 'admin', granted: true },
-      // Tarefas - Acesso total
-      { module: 'tarefas', action: 'admin', granted: true },
-      // Cobrança - Acesso total
-      { module: 'cobranca', action: 'admin', granted: true },
-      // Fluxo de Caixa - Acesso total
-      { module: 'fluxo-caixa', action: 'admin', granted: true },
-      // Configurações - Apenas Notificações e Perfil
-      { module: 'configuracoes', action: 'read_basic', granted: true },
-      { module: 'configuracoes', action: 'admin', granted: false },
-    ],
-    isSystem: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'Conta Gerencial',
-    description: 'Acesso completo + Controle de colaboradores + Sistema de auditoria',
-    permissions: [
-      // Todos os módulos - Acesso administrativo completo
-      { module: 'dashboard', action: 'admin', granted: true },
-      { module: 'crm', action: 'admin', granted: true },
-      { module: 'projetos', action: 'admin', granted: true },
-      { module: 'tarefas', action: 'admin', granted: true },
-      { module: 'cobranca', action: 'admin', granted: true },
-      { module: 'fluxo-caixa', action: 'admin', granted: true },
-      { module: 'configuracoes', action: 'admin', granted: true },
-      // Funcionalidades especiais de gerência
-      { module: 'user-management', action: 'admin', granted: true },
-      { module: 'audit-system', action: 'admin', granted: true },
-      { module: 'plan-management', action: 'admin', granted: true },
-      // IMPLEMENTAÇÃO FUTURA: Controle de planos
-      // - Consegue ver todas as contas do sistema
-      // - Sistema de auditoria de cada conta
-      // - Pode alterar usuários de Simples para Composta (baseado no plano)
-      // - Controle de senhas e usuários
-    ],
-    isSystem: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
+  // {
+  //   id: '1',
+  //   name: 'Conta Simples',
+  //   description: 'Acesso apenas ao CRM e áreas básicas do sistema',
+  //   permissions: [
+  //     // CRM - Acesso total
+  //     { module: 'crm', action: 'admin', granted: true },
+  //     // Dashboard - SEM informações financeiras (receitas, despesas, saldo)
+  //     { module: 'dashboard', action: 'read_basic', granted: true },
+  //     { module: 'dashboard', action: 'read_financial', granted: false },
+  //     // Projetos - Acesso total
+  //     { module: 'projetos', action: 'admin', granted: true },
+  //     // Tarefas - Acesso total
+  //     { module: 'tarefas', action: 'admin', granted: true },
+  //     // Cobrança - Acesso total
+  //     { module: 'cobranca', action: 'admin', granted: true },
+  //     // Fluxo de Caixa - SEM acesso
+  //     { module: 'fluxo-caixa', action: 'read', granted: false },
+  //     // Configurações - Apenas Notificações e Perfil
+  //     { module: 'configuracoes', action: 'read_basic', granted: true },
+  //     { module: 'configuracoes', action: 'admin', granted: false },
+  //   ],
+  //   isSystem: true,
+  //   createdAt: '2024-01-01T00:00:00Z',
+  //   updatedAt: '2024-01-01T00:00:00Z',
+  // },
+  // {
+  //   id: '2',
+  //   name: 'Conta Composta',
+  //   description: 'Acesso ao CRM + Fluxo de Caixa (Dashboard completo)',
+  //   permissions: [
+  //     // Dashboard - Acesso completo (incluindo informações financeiras)
+  //     { module: 'dashboard', action: 'admin', granted: true },
+  //     // CRM - Acesso total
+  //     { module: 'crm', action: 'admin', granted: true },
+  //     // Projetos - Acesso total
+  //     { module: 'projetos', action: 'admin', granted: true },
+  //     // Tarefas - Acesso total
+  //     { module: 'tarefas', action: 'admin', granted: true },
+  //     // Cobrança - Acesso total
+  //     { module: 'cobranca', action: 'admin', granted: true },
+  //     // Fluxo de Caixa - Acesso total
+  //     { module: 'fluxo-caixa', action: 'admin', granted: true },
+  //     // Configurações - Apenas Notificações e Perfil
+  //     { module: 'configuracoes', action: 'read_basic', granted: true },
+  //     { module: 'configuracoes', action: 'admin', granted: false },
+  //   ],
+  //   isSystem: true,
+  //   createdAt: '2024-01-01T00:00:00Z',
+  //   updatedAt: '2024-01-01T00:00:00Z',
+  // },
+  // {
+  //   id: '3',
+  //   name: 'Conta Gerencial',
+  //   description: 'Acesso completo + Controle de colaboradores + Sistema de auditoria',
+  //   permissions: [
+  //     // Todos os módulos - Acesso administrativo completo
+  //     { module: 'dashboard', action: 'admin', granted: true },
+  //     { module: 'crm', action: 'admin', granted: true },
+  //     { module: 'projetos', action: 'admin', granted: true },
+  //     { module: 'tarefas', action: 'admin', granted: true },
+  //     { module: 'cobranca', action: 'admin', granted: true },
+  //     { module: 'fluxo-caixa', action: 'admin', granted: true },
+  //     { module: 'configuracoes', action: 'admin', granted: true },
+  //     // Funcionalidades especiais de gerência
+  //     { module: 'user-management', action: 'admin', granted: true },
+  //     { module: 'audit-system', action: 'admin', granted: true },
+  //     { module: 'plan-management', action: 'admin', granted: true },
+  //     // IMPLEMENTAÇÃO FUTURA: Controle de planos
+  //     // - Consegue ver todas as contas do sistema
+  //     // - Sistema de auditoria de cada conta
+  //     // - Pode alterar usuários de Simples para Composta (baseado no plano)
+  //     // - Controle de senhas e usuários
+  //   ],
+  //   isSystem: true,
+  //   createdAt: '2024-01-01T00:00:00Z',
+  //   updatedAt: '2024-01-01T00:00:00Z',
+  // },
 ];
 
 const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Dr. Silva (Gerente)',
-    email: 'silva@escritorio.com.br',
-    phone: '(11) 99999-1234',
-    roleId: '3', // Conta Gerencial
-    role: mockRoles[2],
-    status: 'active',
-    lastLogin: '2024-01-28T14:30:00Z',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-28T14:30:00Z',
-    permissions: mockRoles[2].permissions,
-    clientPortalAccess: false,
-  },
-  {
-    id: '2',
-    name: 'Dra. Costa (Financeiro)',
-    email: 'costa@escritorio.com.br',
-    phone: '(11) 88888-5678',
-    roleId: '2', // Conta Composta
-    role: mockRoles[1],
-    status: 'active',
-    lastLogin: '2024-01-28T10:15:00Z',
-    createdAt: '2024-01-10T00:00:00Z',
-    updatedAt: '2024-01-28T10:15:00Z',
-    permissions: mockRoles[1].permissions,
-    clientPortalAccess: false,
-  },
-  {
-    id: '3',
-    name: 'Ana (Atendimento)',
-    email: 'ana@escritorio.com.br',
-    phone: '(11) 77777-9999',
-    roleId: '1', // Conta Simples
-    role: mockRoles[0],
-    status: 'active',
-    lastLogin: '2024-01-27T16:45:00Z',
-    createdAt: '2024-01-15T00:00:00Z',
-    updatedAt: '2024-01-27T16:45:00Z',
-    permissions: mockRoles[0].permissions,
-    clientPortalAccess: true,
-  },
-  {
-    id: '4',
-    name: 'Carlos (Estagiário)',
-    email: 'carlos@escritorio.com.br',
-    roleId: '1', // Conta Simples
-    role: mockRoles[0],
-    status: 'pending',
-    createdAt: '2024-01-25T00:00:00Z',
-    updatedAt: '2024-01-25T00:00:00Z',
-    permissions: mockRoles[0].permissions,
-    clientPortalAccess: false,
-  },
+  // {
+  //   id: '1',
+  //   name: 'Dr. Silva (Gerente)',
+  //   email: 'silva@escritorio.com.br',
+  //   phone: '(11) 99999-1234',
+  //   roleId: '3', // Conta Gerencial
+  //   role: mockRoles[2],
+  //   status: 'active',
+  //   lastLogin: '2024-01-28T14:30:00Z',
+  //   createdAt: '2024-01-01T00:00:00Z',
+  //   updatedAt: '2024-01-28T14:30:00Z',
+  //   permissions: mockRoles[2].permissions,
+  //   clientPortalAccess: false,
+  // },
+  // {
+  //   id: '2',
+  //   name: 'Dra. Costa (Financeiro)',
+  //   email: 'costa@escritorio.com.br',
+  //   phone: '(11) 88888-5678',
+  //   roleId: '2', // Conta Composta
+  //   role: mockRoles[1],
+  //   status: 'active',
+  //   lastLogin: '2024-01-28T10:15:00Z',
+  //   createdAt: '2024-01-10T00:00:00Z',
+  //   updatedAt: '2024-01-28T10:15:00Z',
+  //   permissions: mockRoles[1].permissions,
+  //   clientPortalAccess: false,
+  // },
+  // {
+  //   id: '3',
+  //   name: 'Ana (Atendimento)',
+  //   email: 'ana@escritorio.com.br',
+  //   phone: '(11) 77777-9999',
+  //   roleId: '1', // Conta Simples
+  //   role: mockRoles[0],
+  //   status: 'active',
+  //   lastLogin: '2024-01-27T16:45:00Z',
+  //   createdAt: '2024-01-15T00:00:00Z',
+  //   updatedAt: '2024-01-27T16:45:00Z',
+  //   permissions: mockRoles[0].permissions,
+  //   clientPortalAccess: true,
+  // },
+  // {
+  //   id: '4',
+  //   name: 'Carlos (Estagiário)',
+  //   email: 'carlos@escritorio.com.br',
+  //   roleId: '1', // Conta Simples
+  //   role: mockRoles[0],
+  //   status: 'pending',
+  //   createdAt: '2024-01-25T00:00:00Z',
+  //   updatedAt: '2024-01-25T00:00:00Z',
+  //   permissions: mockRoles[0].permissions,
+  //   clientPortalAccess: false,
+  // },
 ];
 
 /*

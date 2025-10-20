@@ -1,7 +1,7 @@
 import './env';
-import 'dotenv/config';
 import { createApp } from './app';
 
+console.log('PORT:', process.env.PORT)
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const HOST = 'localhost';
 
@@ -18,7 +18,7 @@ async function startServer() {
       console.log(`🚀 SaaS Backend Server running on ${HOST}:${PORT}`);
       console.log(`📊 Health check: http://${HOST}:${PORT}/health`);
       console.log(`🔧 API Base URL: http://${HOST}:${PORT}/api`);
-      
+
       if (process.env.NODE_ENV === 'production') {
         console.log('🟢 Production mode enabled');
       } else {
@@ -29,7 +29,7 @@ async function startServer() {
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
-      
+
       server.close(async () => {
         console.log('📡 HTTP server closed');
         console.log('✅ Graceful shutdown completed');

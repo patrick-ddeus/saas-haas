@@ -473,11 +473,11 @@ export function InvoiceViewDialog({
                   <div>
                     <p className="text-sm font-medium">Nome</p>
                     <p className="text-sm text-muted-foreground">
-                      {invoice.clienteNome || "Cliente não identificado"}
+                      {/* {invoice.clienteNome || "Cliente não identificado"} */}
                     </p>
                   </div>
                 </div>
-                {invoice.clienteEmail && (
+                {/* {invoice.clienteEmail && (
                   <div className="flex items-center space-x-3">
                     <Mail className="h-4 w-4 text-muted-foreground" />
                     <div>
@@ -487,8 +487,8 @@ export function InvoiceViewDialog({
                       </p>
                     </div>
                   </div>
-                )}
-                {invoice.clienteTelefone && (
+                )} */}
+                {/* {invoice.clienteTelefone && (
                   <div className="flex items-center space-x-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
                     <div>
@@ -498,7 +498,7 @@ export function InvoiceViewDialog({
                       </p>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
             </div>
 

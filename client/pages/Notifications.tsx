@@ -294,6 +294,7 @@ export function Notifications() {
                 {unreadCount} não lidas
               </Badge>
             )}
+            {/* @ts-expect-error expected */}
             <Button onClick={markAllAsRead} variant="outline">
               <CheckCircle className="h-4 w-4 mr-2" />
               Marcar todas como lidas

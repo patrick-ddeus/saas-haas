@@ -99,126 +99,126 @@ const mockDashboard: DashboardRecebiveis = {
 
 const mockInvoices: Invoice[] = [
   // ÚNICA FATURA VENCIDA (conforme solicitado)
-  {
-    id: "1",
-    clienteId: "client1",
-    numeroFatura: "REC-2025-001",
-    valor: 5500,
-    descricao: "Honorários Advocatícios - Dezembro/2024",
-    servicoPrestado: "Consultoria Jurídica Especializada",
-    dataEmissao: new Date("2024-12-01"),
-    dataVencimento: new Date("2024-12-31"),
-    status: "vencida",
-    tentativasCobranca: 3,
-    stripeInvoiceId: "in_stripe123",
-    linkPagamento: "https://checkout.stripe.com/xyz",
-    recorrente: true,
-    intervaloDias: 30,
-    proximaFaturaData: new Date("2025-01-31"),
-    criadoPor: "Dr. Silva",
-    criadoEm: new Date("2024-12-01"),
-    atualizadoEm: new Date("2025-01-05"),
-    urgencia: "alta",
-    ultimaNotificacao: new Date("2025-01-03"),
-  },
-  // FATURAS PRÓXIMAS AO VENCIMENTO (3 dias ou menos)
-  {
-    id: "2",
-    clienteId: "client2",
-    numeroFatura: "REC-2025-015",
-    valor: 3200,
-    descricao: "Ação Trabalhista - Acompanhamento Processual",
-    servicoPrestado: "Processo Judicial",
-    dataEmissao: new Date("2025-01-05"),
-    dataVencimento: new Date("2025-01-28"), // 3 dias
-    status: "pendente",
-    tentativasCobranca: 1,
-    linkPagamento: "https://checkout.stripe.com/abc123",
-    recorrente: false,
-    criadoPor: "Dra. Costa",
-    criadoEm: new Date("2025-01-05"),
-    atualizadoEm: new Date("2025-01-20"),
-    urgencia: "media",
-    proximaNotificacao: new Date("2025-01-25"),
-  },
-  {
-    id: "3",
-    clienteId: "client3",
-    numeroFatura: "REC-2025-018",
-    valor: 2800,
-    descricao: "Elaboração de Contrato Empresarial",
-    servicoPrestado: "Elaboração de Contratos",
-    dataEmissao: new Date("2025-01-10"),
-    dataVencimento: new Date("2025-01-27"), // 2 dias
-    status: "nova",
-    tentativasCobranca: 0,
-    linkPagamento: "https://checkout.stripe.com/def456",
-    recorrente: false,
-    criadoPor: "Dr. Silva",
-    criadoEm: new Date("2025-01-10"),
-    atualizadoEm: new Date("2025-01-10"),
-    urgencia: "alta",
-  },
-  // FATURAS PENDENTES (prazo normal)
-  {
-    id: "4",
-    clienteId: "client4",
-    numeroFatura: "REC-2025-020",
-    valor: 4200,
-    descricao: "Consultoria Jurídica - Janeiro/2025",
-    servicoPrestado: "Consultoria Empresarial",
-    dataEmissao: new Date("2025-01-15"),
-    dataVencimento: new Date("2025-02-15"),
-    status: "pendente",
-    tentativasCobranca: 0,
-    linkPagamento: "https://checkout.stripe.com/ghi789",
-    recorrente: true,
-    intervaloDias: 30,
-    proximaFaturaData: new Date("2025-02-15"),
-    criadoPor: "Dra. Costa",
-    criadoEm: new Date("2025-01-15"),
-    atualizadoEm: new Date("2025-01-15"),
-    urgencia: "media",
-  },
-  // FATURAS PAGAS (algumas amostras)
-  {
-    id: "5",
-    clienteId: "client5",
-    numeroFatura: "REC-2025-010",
-    valor: 3500,
-    descricao: "Assessoria Jurídica Completa",
-    servicoPrestado: "Consultoria Jurídica",
-    dataEmissao: new Date("2025-01-02"),
-    dataVencimento: new Date("2025-01-20"),
-    dataPagamento: new Date("2025-01-18"),
-    status: "paga",
-    tentativasCobranca: 1,
-    stripePaymentIntentId: "pi_payment123",
-    recorrente: false,
-    criadoPor: "Dr. Silva",
-    criadoEm: new Date("2025-01-02"),
-    atualizadoEm: new Date("2025-01-18"),
-    urgencia: "baixa",
-  },
-  {
-    id: "6",
-    clienteId: "client6",
-    numeroFatura: "REC-2025-012",
-    valor: 2400,
-    descricao: "Revisão Contratual",
-    servicoPrestado: "Análise de Contratos",
-    dataEmissao: new Date("2025-01-05"),
-    dataVencimento: new Date("2025-01-22"),
-    dataPagamento: new Date("2025-01-21"),
-    status: "paga",
-    tentativasCobranca: 0,
-    stripePaymentIntentId: "pi_payment456",
-    recorrente: false,
-    criadoPor: "Dra. Costa",
-    criadoEm: new Date("2025-01-05"),
-    atualizadoEm: new Date("2025-01-21"),
-    urgencia: "baixa",
-  },
+  // {
+  //   id: "1",
+  //   clienteId: "client1",
+  //   numeroFatura: "REC-2025-001",
+  //   valor: 5500,
+  //   descricao: "Honorários Advocatícios - Dezembro/2024",
+  //   servicoPrestado: "Consultoria Jurídica Especializada",
+  //   dataEmissao: new Date("2024-12-01"),
+  //   dataVencimento: new Date("2024-12-31"),
+  //   status: "vencida",
+  //   tentativasCobranca: 3,
+  //   stripeInvoiceId: "in_stripe123",
+  //   linkPagamento: "https://checkout.stripe.com/xyz",
+  //   recorrente: true,
+  //   intervaloDias: 30,
+  //   proximaFaturaData: new Date("2025-01-31"),
+  //   criadoPor: "Dr. Silva",
+  //   criadoEm: new Date("2024-12-01"),
+  //   atualizadoEm: new Date("2025-01-05"),
+  //   urgencia: "alta",
+  //   ultimaNotificacao: new Date("2025-01-03"),
+  // },
+  // // FATURAS PRÓXIMAS AO VENCIMENTO (3 dias ou menos)
+  // {
+  //   id: "2",
+  //   clienteId: "client2",
+  //   numeroFatura: "REC-2025-015",
+  //   valor: 3200,
+  //   descricao: "Ação Trabalhista - Acompanhamento Processual",
+  //   servicoPrestado: "Processo Judicial",
+  //   dataEmissao: new Date("2025-01-05"),
+  //   dataVencimento: new Date("2025-01-28"), // 3 dias
+  //   status: "pendente",
+  //   tentativasCobranca: 1,
+  //   linkPagamento: "https://checkout.stripe.com/abc123",
+  //   recorrente: false,
+  //   criadoPor: "Dra. Costa",
+  //   criadoEm: new Date("2025-01-05"),
+  //   atualizadoEm: new Date("2025-01-20"),
+  //   urgencia: "media",
+  //   proximaNotificacao: new Date("2025-01-25"),
+  // },
+  // {
+  //   id: "3",
+  //   clienteId: "client3",
+  //   numeroFatura: "REC-2025-018",
+  //   valor: 2800,
+  //   descricao: "Elaboração de Contrato Empresarial",
+  //   servicoPrestado: "Elaboração de Contratos",
+  //   dataEmissao: new Date("2025-01-10"),
+  //   dataVencimento: new Date("2025-01-27"), // 2 dias
+  //   status: "nova",
+  //   tentativasCobranca: 0,
+  //   linkPagamento: "https://checkout.stripe.com/def456",
+  //   recorrente: false,
+  //   criadoPor: "Dr. Silva",
+  //   criadoEm: new Date("2025-01-10"),
+  //   atualizadoEm: new Date("2025-01-10"),
+  //   urgencia: "alta",
+  // },
+  // // FATURAS PENDENTES (prazo normal)
+  // {
+  //   id: "4",
+  //   clienteId: "client4",
+  //   numeroFatura: "REC-2025-020",
+  //   valor: 4200,
+  //   descricao: "Consultoria Jurídica - Janeiro/2025",
+  //   servicoPrestado: "Consultoria Empresarial",
+  //   dataEmissao: new Date("2025-01-15"),
+  //   dataVencimento: new Date("2025-02-15"),
+  //   status: "pendente",
+  //   tentativasCobranca: 0,
+  //   linkPagamento: "https://checkout.stripe.com/ghi789",
+  //   recorrente: true,
+  //   intervaloDias: 30,
+  //   proximaFaturaData: new Date("2025-02-15"),
+  //   criadoPor: "Dra. Costa",
+  //   criadoEm: new Date("2025-01-15"),
+  //   atualizadoEm: new Date("2025-01-15"),
+  //   urgencia: "media",
+  // },
+  // // FATURAS PAGAS (algumas amostras)
+  // {
+  //   id: "5",
+  //   clienteId: "client5",
+  //   numeroFatura: "REC-2025-010",
+  //   valor: 3500,
+  //   descricao: "Assessoria Jurídica Completa",
+  //   servicoPrestado: "Consultoria Jurídica",
+  //   dataEmissao: new Date("2025-01-02"),
+  //   dataVencimento: new Date("2025-01-20"),
+  //   dataPagamento: new Date("2025-01-18"),
+  //   status: "paga",
+  //   tentativasCobranca: 1,
+  //   stripePaymentIntentId: "pi_payment123",
+  //   recorrente: false,
+  //   criadoPor: "Dr. Silva",
+  //   criadoEm: new Date("2025-01-02"),
+  //   atualizadoEm: new Date("2025-01-18"),
+  //   urgencia: "baixa",
+  // },
+  // {
+  //   id: "6",
+  //   clienteId: "client6",
+  //   numeroFatura: "REC-2025-012",
+  //   valor: 2400,
+  //   descricao: "Revisão Contratual",
+  //   servicoPrestado: "Análise de Contratos",
+  //   dataEmissao: new Date("2025-01-05"),
+  //   dataVencimento: new Date("2025-01-22"),
+  //   dataPagamento: new Date("2025-01-21"),
+  //   status: "paga",
+  //   tentativasCobranca: 0,
+  //   stripePaymentIntentId: "pi_payment456",
+  //   recorrente: false,
+  //   criadoPor: "Dra. Costa",
+  //   criadoEm: new Date("2025-01-05"),
+  //   atualizadoEm: new Date("2025-01-21"),
+  //   urgencia: "baixa",
+  // },
 ];
 
 const mockClientes: ClienteCobranca[] = [
@@ -306,7 +306,7 @@ const getStatusBadge = (status: InvoiceStatus) => {
 
   // Fallback para status não reconhecidos
   return (
-    configs[status as keyof typeof configs] || {
+    configs[ status as keyof typeof configs ] || {
       label: status || "Desconhecido",
       className:
         "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
@@ -328,17 +328,17 @@ const formatCurrency = (value: number) => {
 };
 
 export function Receivables() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showViewDialog, setShowViewDialog] = useState(false);
-  const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
-  const [showClientViewDialog, setShowClientViewDialog] = useState(false);
-  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
-  const [viewingClient, setViewingClient] = useState<any>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [ searchTerm, setSearchTerm ] = useState("");
+  const [ statusFilter, setStatusFilter ] = useState<string>("all");
+  const [ selectedInvoices, setSelectedInvoices ] = useState<string[]>([]);
+  const [ showImportModal, setShowImportModal ] = useState(false);
+  const [ showViewDialog, setShowViewDialog ] = useState(false);
+  const [ showNewInvoiceModal, setShowNewInvoiceModal ] = useState(false);
+  const [ showClientViewDialog, setShowClientViewDialog ] = useState(false);
+  const [ viewingInvoice, setViewingInvoice ] = useState<Invoice | null>(null);
+  const [ viewingClient, setViewingClient ] = useState<any>(null);
+  const [ invoices, setInvoices ] = useState<Invoice[]>(mockInvoices);
+  const [ notifications, setNotifications ] = useState<any[]>([]);
 
   /**
    * FUNÇÃO PARA DETECÇÃO DE VENCIMENTOS (3 DIAS)
@@ -419,9 +419,9 @@ export function Receivables() {
       };
 
       const priorityA =
-        statusPriority[a.status as keyof typeof statusPriority] || 7;
+        statusPriority[ a.status as keyof typeof statusPriority ] || 7;
       const priorityB =
-        statusPriority[b.status as keyof typeof statusPriority] || 7;
+        statusPriority[ b.status as keyof typeof statusPriority ] || 7;
 
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
@@ -441,7 +441,7 @@ export function Receivables() {
       id: `imported_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     }));
 
-    setInvoices((prev) => [...prev, ...newInvoices]);
+    setInvoices((prev) => [ ...prev, ...newInvoices ]);
 
     // Notificação de sucesso
     console.log(
@@ -456,7 +456,7 @@ export function Receivables() {
       id: `new_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     }));
 
-    setInvoices((prev) => [...invoicesWithIds, ...prev]);
+    setInvoices((prev) => [ ...invoicesWithIds, ...prev ]);
 
     // Notificação de sucesso
     console.log(
@@ -518,7 +518,7 @@ export function Receivables() {
     };
 
     const statusLabel =
-      statusLabels[newStatus as keyof typeof statusLabels] || newStatus;
+      statusLabels[ newStatus as keyof typeof statusLabels ] || newStatus;
     console.log(
       `✅ Status da fatura ${invoice.numeroFatura} alterado para: ${statusLabel}`,
     );
@@ -533,18 +533,9 @@ export function Receivables() {
 
     invoices.forEach((invoice) => {
       const clientId = invoice.clienteId;
-      const clientName =
-        invoice.clienteNome ||
-        mockClientes.find((c) => c.id === clientId)?.nome ||
-        "Cliente Desconhecido";
-      const clientEmail =
-        invoice.clienteEmail ||
-        mockClientes.find((c) => c.id === clientId)?.email ||
-        "";
-      const clientPhone =
-        invoice.clienteTelefone ||
-        mockClientes.find((c) => c.id === clientId)?.telefone ||
-        "";
+      const clientName = "Cliente Desconhecido";
+      const clientEmail = ""
+      const clientPhone = ""
 
       if (!clientsMap.has(clientId)) {
         clientsMap.set(clientId, {
@@ -594,7 +585,7 @@ export function Receivables() {
       ...notificationData,
     };
 
-    setNotifications((prev) => [newNotification, ...prev]);
+    setNotifications((prev) => [ newNotification, ...prev ]);
 
     console.log("✅ Notificação criada:", newNotification);
     alert(
@@ -710,7 +701,7 @@ export function Receivables() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {mockDashboard.faturasVencidas}
+                {/* {mockDashboard.faturasVencidas} */}
               </div>
               <p className="text-xs text-muted-foreground">
                 {formatCurrency(mockDashboard.valorVencido)}
@@ -869,7 +860,6 @@ export function Receivables() {
                                 <div className="space-y-1">
                                   <span className="font-medium">
                                     {cliente?.nome ||
-                                      invoice.clienteNome ||
                                       "Cliente não identificado"}
                                   </span>
                                   <div className="text-xs text-muted-foreground">
@@ -905,33 +895,33 @@ export function Receivables() {
                               <TableCell>
                                 {(invoice.status === "pendente" ||
                                   invoice.status === "nova") && (
-                                  <span
-                                    className={
-                                      diasVencimento < 0
-                                        ? "text-red-600 font-semibold"
-                                        : diasVencimento <= 3
-                                          ? "text-orange-600 font-semibold"
-                                          : "text-muted-foreground"
-                                    }
-                                  >
-                                    {diasVencimento < 0 ? (
-                                      <div className="flex items-center space-x-1">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        <span>
-                                          {Math.abs(diasVencimento)} dias em
-                                          atraso
-                                        </span>
-                                      </div>
-                                    ) : diasVencimento === 0 ? (
-                                      <div className="flex items-center space-x-1 text-red-600">
-                                        <Clock className="h-3 w-3" />
-                                        <span>Vence hoje</span>
-                                      </div>
-                                    ) : (
-                                      `${diasVencimento} dias`
-                                    )}
-                                  </span>
-                                )}
+                                    <span
+                                      className={
+                                        diasVencimento < 0
+                                          ? "text-red-600 font-semibold"
+                                          : diasVencimento <= 3
+                                            ? "text-orange-600 font-semibold"
+                                            : "text-muted-foreground"
+                                      }
+                                    >
+                                      {diasVencimento < 0 ? (
+                                        <div className="flex items-center space-x-1">
+                                          <AlertTriangle className="h-3 w-3" />
+                                          <span>
+                                            {Math.abs(diasVencimento)} dias em
+                                            atraso
+                                          </span>
+                                        </div>
+                                      ) : diasVencimento === 0 ? (
+                                        <div className="flex items-center space-x-1 text-red-600">
+                                          <Clock className="h-3 w-3" />
+                                          <span>Vence hoje</span>
+                                        </div>
+                                      ) : (
+                                        `${diasVencimento} dias`
+                                      )}
+                                    </span>
+                                  )}
                                 {invoice.status === "paga" && (
                                   <span className="text-green-600 text-sm">
                                     ✅ Paga
@@ -958,17 +948,17 @@ export function Receivables() {
                                   </Button>
                                   {(invoice.status === "pendente" ||
                                     invoice.status === "nova") && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        handleNotificarCliente(invoice)
-                                      }
-                                      title="Enviar Notificação"
-                                    >
-                                      <MessageSquare className="h-4 w-4" />
-                                    </Button>
-                                  )}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleNotificarCliente(invoice)
+                                        }
+                                        title="Enviar Notificação"
+                                      >
+                                        <MessageSquare className="h-4 w-4" />
+                                      </Button>
+                                    )}
                                   {invoice.linkPagamento && (
                                     <Button
                                       variant="ghost"

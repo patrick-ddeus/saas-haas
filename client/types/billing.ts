@@ -70,6 +70,7 @@ export type DocumentStatus =
   | 'APPROVED'
   | 'REJECTED'
   | 'Pendente'
+  | 'PENDING'
   | 'PAID'
   | 'OVERDUE'
   | 'CANCELLED';
@@ -79,7 +80,8 @@ export type PaymentStatus =
   | 'PAID'
   | 'PARTIAL'
   | 'OVERDUE'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'PENDING';
 
 export type PaymentMethod = 
   | 'PIX'

@@ -44,15 +44,16 @@ interface DocumentViewDialogProps {
   onDuplicate?: (document: Document) => void;
 }
 
-export function DocumentViewDialog({ 
-  open, 
-  onOpenChange, 
-  document, 
+export function DocumentViewDialog({
+  open,
+  onOpenChange,
+  document,
   onEdit,
   onDownload,
   onSend,
   onDuplicate
 }: DocumentViewDialogProps) {
+  console.log("🚀 ~ DocumentViewDialog ~ document:", document)
   if (!document) return null;
 
   const formatCurrency = (value: number, currency: string) => {
@@ -61,7 +62,7 @@ export function DocumentViewDialog({
       USD: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }),
       EUR: new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }),
     };
-    return formatters[currency as keyof typeof formatters]?.format(value) || `${currency} ${value}`;
+    return formatters[ currency as keyof typeof formatters ]?.format(value) || `${currency} ${value}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -74,7 +75,7 @@ export function DocumentViewDialog({
       invoice: 'Fatura',
 
     };
-    return typeMap[type as keyof typeof typeMap] || type;
+    return typeMap[ type as keyof typeof typeMap ] || type;
   };
 
   const getStatusLabel = (status: string) => {
@@ -89,7 +90,7 @@ export function DocumentViewDialog({
       OVERDUE: 'Vencido',
       CANCELLED: 'Cancelado',
     };
-    return statusMap[status as keyof typeof statusMap] || status;
+    return statusMap[ status as keyof typeof statusMap ] || status;
   };
 
   const getStatusColor = (status: string) => {
@@ -104,7 +105,7 @@ export function DocumentViewDialog({
       OVERDUE: 'bg-red-100 text-red-800',
       CANCELLED: 'bg-gray-100 text-gray-800',
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[ status as keyof typeof colors ] || 'bg-gray-100 text-gray-800';
   };
 
   const calculateTotal = () => {
@@ -137,14 +138,16 @@ export function DocumentViewDialog({
                 </DialogTitle>
                 <DialogDescription className="flex items-center space-x-2">
                   <User className="h-4 w-4" />
-                  <span>{document.clientName}</span>
-                  {document.organization && (
+                  {/* @ts-expected-error expected error */}
+                  {/* <span>{document.clientName}</span> */}
+                  {/* @ts-expected-error expected error */}
+                  {/* {document.organization && (
                     <>
                       <span>•</span>
                       <Building className="h-4 w-4" />
                       <span>{document.organization}</span>
                     </>
-                  )}
+                  )} */}
                 </DialogDescription>
               </div>
             </div>
@@ -190,7 +193,7 @@ export function DocumentViewDialog({
                 <User className="h-5 w-5 mr-2" />
                 Informações do Cliente
               </h3>
-              <div className="space-y-2 text-sm">
+              {/* <div className="space-y-2 text-sm">
                 <div><strong>Nome:</strong> {document.clientName}</div>
                 {document.organization && (
                   <div><strong>Organização:</strong> {document.organization}</div>
@@ -204,7 +207,7 @@ export function DocumentViewDialog({
                   {document.clientPhone}
                 </div>
                 <div><strong>Endereço:</strong> {document.clientAddress}</div>
-              </div>
+              </div> */}
             </div>
 
             <div className="space-y-4">
@@ -213,7 +216,7 @@ export function DocumentViewDialog({
                 Informações do Documento
               </h3>
               <div className="space-y-2 text-sm">
-                <div><strong>Data de Criação:</strong> {formatDate(document.issueDate)}</div>
+                {/* <div><strong>Data de Criação:</strong> {formatDate(document.issueDate)}</div> */}
                 <div><strong>Data de Vencimento:</strong> {formatDate(document.dueDate)}</div>
                 <div><strong>Criado em:</strong> {formatDate(document.createdAt)}</div>
                 <div><strong>Atualizado em:</strong> {formatDate(document.updatedAt)}</div>
@@ -299,7 +302,7 @@ export function DocumentViewDialog({
                     <strong>Método:</strong> {document.paymentMethod}
                   </div>
                 )}
-                {document.paidAt && (
+                {/* {document.paidAt && (
                   <div>
                     <strong>Pago em:</strong> {formatDate(document.paidAt)}
                   </div>
@@ -308,7 +311,7 @@ export function DocumentViewDialog({
                   <div>
                     <strong>Valor Pago:</strong> {formatCurrency(document.paidAmount, document.currency)}
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           )}

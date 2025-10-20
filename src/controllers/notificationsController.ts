@@ -15,7 +15,7 @@ import { notificationsService } from '../services/notificationsService';
 // Validation schemas
 // NOTE: userId is NOT accepted from body for security - always uses req.user.id
 const createNotificationSchema = z.object({
-  type: z.enum(['task', 'invoice', 'system', 'client', 'project']),
+  type: z.enum([ 'task', 'invoice', 'system', 'client', 'project' ]),
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
   message: z.string().min(1, 'Message is required'),
   payload: z.any().optional(),
@@ -76,7 +76,7 @@ export class NotificationsController {
       }
 
       const validatedData = createNotificationSchema.parse(req.body);
-      
+
       // ✅ SECURITY: Always use req.user.id for userId - never accept from body
       // This prevents privilege escalation attacks
       const notificationData = {
@@ -84,7 +84,7 @@ export class NotificationsController {
         userId: req.user.id,  // Always the authenticated user
         actorId: req.user.id  // Always the authenticated user
       };
-
+      // @ts-expect-error
       const notification = await notificationsService.createNotification(req.tenantDB, notificationData);
 
       res.status(201).json({

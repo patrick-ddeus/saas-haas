@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { database } from '../config/database.js';
+import { database, TenantDatabase } from '../config/database.js';
 import { authService } from '../services/authService.js';
 
 export interface AuthenticatedRequest extends Request {
@@ -13,6 +13,7 @@ export interface AuthenticatedRequest extends Request {
     role?: string;
   };
   tenantId?: string;
+  tenantDB?: TenantDatabase
 }
 
 export interface JWTPayload {
@@ -128,7 +129,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
         return res.status(403).json({ error: 'Token/user mismatch', code: 'AUTH_MISMATCH' });
       }
 
-      const userTenantId = String(user.tenantId || user.tenant_id);
+      const userTenantId = String(user.tenantId);
       if (decoded.tenantId && decoded.tenantId !== userTenantId) {
         console.error('Token tenantId mismatch:', {decoded: decoded.tenantId, db: userTenantId});
         return res.status(403).json({ error: 'Token/tenant mismatch', code: 'TENANT_MISMATCH' });
@@ -138,13 +139,13 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     req.user = {
       id: String(user.id),
       email: String(user.email),
-      tenantId: String(user.tenantId || user.tenant_id),
-      accountType: String(user.accountType || user.account_type),
+      tenantId: String(user.tenantId),
+      accountType: String(user.accountType),
       name: String(user.name),
     };
 
     // SEMPRE derivar tenantId do DB, NUNCA do token
-    req.tenantId = String(user.tenantId || user.tenant_id);
+    req.tenantId = String(user.tenantId);
 
     // Se não é admin, verificar tenant - OTIMIZADO
     if (!decoded.role && req.tenantId) {
@@ -209,7 +210,7 @@ export const requireAccountType = (allowedTypes: string[]) => {
 };
 
 // Tenant isolation middleware
-export const tenantMiddleware = (
+export const tenantMiddleware = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -222,6 +223,16 @@ export const tenantMiddleware = (
     });
   }
 
+  const tenant = await database.getTenantById(req.tenantId);
+
+  if (!tenant) {
+    return res.status(403).json({
+      error: 'Invalid tenant',
+      code: 'TENANT_NOT_FOUND'
+    });
+  }
+
+  req.tenantDB = new TenantDatabase(req.tenantId, tenant.schemaName);
   next();
 };
 

@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => ({
       clientPort: 443,
     },
     fs: {
-      allow: ["./client", "./shared", "./admin", "./src", "./"],
-      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**"],
+      allow: [ "./client", "./shared", "./admin", "./src", "./" ],
+      deny: [ ".env", ".env.*", "*.{crt,pem}", "**/.git/**" ],
     },
     allowedHosts: true,
   },
@@ -25,7 +25,8 @@ export default defineConfig(({ mode }) => ({
     outDir: "dist/spa",
   },
 
-  plugins: [react(), expressPlugin()],
+  plugins: [ react(), expressPlugin()
+  ],
 
   resolve: {
     alias: {

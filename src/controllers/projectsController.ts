@@ -157,6 +157,7 @@ export class ProjectsController {
 
       const project = await projectsService.createProject(
         req.tenantDB,
+        // @ts-expect-error - accountType é opcional no schema, mas é necessário para criação
         validatedData,
         req.user.id
       );

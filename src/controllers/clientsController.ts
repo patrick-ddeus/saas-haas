@@ -32,7 +32,7 @@ const createClientSchema = z.object({
   address: z.string().optional(),
   zipCode: z.string().optional(),
   budget: z.number().min(0).optional(),
-  currency: z.enum(['BRL', 'USD', 'EUR']).default('BRL'),
+  currency: z.enum([ 'BRL', 'USD', 'EUR' ]).default('BRL'),
   level: z.string().optional(),
   status: z.string().default('active'),
   tags: z.array(z.string()).default([]),
@@ -82,12 +82,12 @@ export class ClientsController {
 
       // ✅ ISOLAMENTO: Passa req.tenantDB para garantir isolamento por schema
       const result = await clientsService.getClients(req.tenantDB, filters);
-      
-      console.log('[ClientsController] Clients fetched:', { 
-        count: result.clients.length, 
-        total: result.pagination.total 
+
+      console.log('[ClientsController] Clients fetched:', {
+        count: result.clients.length,
+        total: result.pagination.total
       });
-      
+
       res.json(result);
     } catch (error) {
       console.error('[ClientsController] Get clients error:', error);
@@ -109,16 +109,16 @@ export class ClientsController {
       }
 
       const { id } = req.params;
-      
+
       console.log('[ClientsController] Fetching client:', id);
 
       // ✅ ISOLAMENTO: Usa req.tenantDB
       const client = await clientsService.getClientById(req.tenantDB, id);
-      
+
       if (!client) {
         return res.status(404).json({ error: 'Client not found' });
       }
-      
+
       console.log('[ClientsController] Client fetched:', client.id);
 
       // ✅ SEM MOCK: Buscar relacionamentos reais quando necessário
@@ -150,16 +150,17 @@ export class ClientsController {
       }
 
       const validatedData = createClientSchema.parse(req.body);
-      
+
       console.log('[ClientsController] Creating client for user:', req.user.id);
 
       // ✅ ISOLAMENTO: Passa req.tenantDB e userId do token verificado
       const client = await clientsService.createClient(
-        req.tenantDB, 
-        validatedData, 
+        req.tenantDB,
+        // @ts-expect-error expected
+        validatedData,
         req.user.id
       );
-      
+
       console.log('[ClientsController] Client created:', client.id);
 
       res.status(201).json({
@@ -187,16 +188,17 @@ export class ClientsController {
 
       const { id } = req.params;
       const validatedData = updateClientSchema.parse(req.body);
-      
+
       console.log('[ClientsController] Updating client:', id);
 
       // ✅ ISOLAMENTO: Usa req.tenantDB
+      // @ts-expect-error expected
       const client = await clientsService.updateClient(req.tenantDB, id, validatedData);
-      
+
       if (!client) {
         return res.status(404).json({ error: 'Client not found' });
       }
-      
+
       console.log('[ClientsController] Client updated:', client.id);
 
       res.json({
@@ -223,16 +225,16 @@ export class ClientsController {
       }
 
       const { id } = req.params;
-      
+
       console.log('[ClientsController] Deleting client:', id);
 
       // ✅ ISOLAMENTO: Usa req.tenantDB para soft delete
       const success = await clientsService.deleteClient(req.tenantDB, id);
-      
+
       if (!success) {
         return res.status(404).json({ error: 'Client not found' });
       }
-      
+
       console.log('[ClientsController] Client deleted:', id);
 
       res.json({

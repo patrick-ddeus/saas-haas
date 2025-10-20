@@ -207,6 +207,7 @@ model Client {
   phone             String
   country           String    @default("BR")
   state             String
+  notes             String?   @db.Text
   address           String?   @db.Text
   city              String
   zipCode           String?   @map("zip_code")

@@ -5,7 +5,7 @@ import { database } from '../config/database';
 // Validation schemas
 const createKeySchema = z.object({
   tenantId: z.string().uuid().optional(),
-  accountType: z.enum(['SIMPLES', 'COMPOSTA', 'GERENCIAL']),
+  accountType: z.enum([ 'SIMPLES', 'COMPOSTA', 'GERENCIAL' ]),
   usesAllowed: z.number().int().min(1).optional(),
   expiresAt: z.string().datetime().optional(),
   singleUse: z.boolean().optional(),
@@ -27,7 +27,7 @@ export class AdminController {
 
       const createKeySchema = z.object({
         tenantId: z.string().uuid('TenantId is required and must be a valid UUID'),
-        accountType: z.enum(['SIMPLES', 'COMPOSTA', 'GERENCIAL'], {
+        accountType: z.enum([ 'SIMPLES', 'COMPOSTA', 'GERENCIAL' ], {
           errorMap: () => ({ message: 'Account type must be SIMPLES, COMPOSTA, or GERENCIAL' })
         }),
         usesAllowed: z.number().int().min(1).optional().default(1),
@@ -41,7 +41,7 @@ export class AdminController {
       // Verificar se o tenant existe e está ativo
       const tenants = await database.getAllTenants();
       const tenant = tenants.rows.find(t => t.id === validatedData.tenantId);
-      
+
       if (!tenant) {
         console.error('Tenant not found:', validatedData.tenantId);
         return res.status(400).json({
@@ -125,12 +125,12 @@ export class AdminController {
           // Check if key has been used by looking for users registered with this key
           try {
             const { prisma } = await import('../config/database');
-            
+
             // Buscar usuários que usaram esta key
             if (key.used_logs && key.used_logs !== '[]') {
               const usedLogs = typeof key.used_logs === 'string' ? JSON.parse(key.used_logs) : key.used_logs;
               if (Array.isArray(usedLogs) && usedLogs.length > 0) {
-                const lastUsage = usedLogs[usedLogs.length - 1];
+                const lastUsage = usedLogs[ usedLogs.length - 1 ];
                 if (lastUsage && lastUsage.email) {
                   // Buscar o usuário por email no tenant correto
                   const user = await prisma.user.findFirst({
@@ -147,7 +147,7 @@ export class AdminController {
                       accountType: true
                     }
                   });
-                  
+
                   if (user) {
                     userInfo = {
                       id: user.id,
@@ -176,7 +176,7 @@ export class AdminController {
           const isExpired = key.expires_at ? new Date(key.expires_at) < new Date() : false;
           const isRevoked = key.revoked;
           const hasNoUsesLeft = key.uses_left <= 0;
-          
+
           isActive = !userInfo && !isExpired && !isRevoked && !hasNoUsesLeft;
 
           return {
@@ -244,10 +244,10 @@ export class AdminController {
       }
 
       const { registrationKeyService } = await import('../services/registrationKeyService');
-      
+
       // Verificar se a key está inativa antes de deletar
       const keyDetails = await registrationKeyService.getKeyDetails(id);
-      
+
       if (!keyDetails) {
         return res.status(404).json({
           error: 'Registration key not found',
@@ -256,21 +256,21 @@ export class AdminController {
 
       // Verificar se a key foi usada
       const { prisma } = await import('../config/database');
-      
+
       let isUsed = false;
       let userName = '';
-      
+
       // Verificar se key foi usada pelos logs
-      if (keyDetails.used_logs && keyDetails.used_logs !== '[]') {
-        const usedLogs = typeof keyDetails.used_logs === 'string' ? JSON.parse(keyDetails.used_logs) : keyDetails.used_logs;
+      if (keyDetails.usedLogs && keyDetails.usedLogs !== '[]') {
+        const usedLogs = typeof keyDetails.usedLogs === 'string' ? JSON.parse(keyDetails.usedLogs) : keyDetails.usedLogs;
         if (Array.isArray(usedLogs) && usedLogs.length > 0) {
-          const lastUsage = usedLogs[usedLogs.length - 1];
+          const lastUsage = usedLogs[ usedLogs.length - 1 ];
           if (lastUsage && lastUsage.email) {
             // Verificar se existe usuário registrado com esta key
             const user = await prisma.user.findFirst({
               where: {
                 email: lastUsage.email,
-                tenantId: keyDetails.tenant_id || undefined
+                tenantId: keyDetails.tenantId || undefined
               },
               select: {
                 id: true,
@@ -279,7 +279,7 @@ export class AdminController {
                 isActive: true
               }
             });
-            
+
             if (user) {
               isUsed = true;
               userName = user.name;
@@ -289,7 +289,7 @@ export class AdminController {
       }
 
       // Verificar também se uses_left é menor que uses_allowed (indicativo de uso)
-      if (!isUsed && keyDetails.uses_left < keyDetails.uses_allowed) {
+      if (!isUsed && keyDetails.usesLeft < keyDetails.usesAllowed) {
         isUsed = true;
       }
 
@@ -298,11 +298,11 @@ export class AdminController {
           error: 'Cannot delete used registration key',
           message: `Esta registration key já foi utilizada${userName ? ` pelo usuário "${userName}"` : ''} e não pode ser deletada. Apenas keys INATIVAS podem ser removidas.`,
           details: {
-            keyId: keyId,
+            keyId: keyDetails.id,
             isUsed: true,
             userName: userName || 'Usuário não identificado',
-            usesLeft: keyDetails.uses_left,
-            usesAllowed: keyDetails.uses_allowed
+            usesLeft: keyDetails.usesLeft,
+            usesAllowed: keyDetails.usesAllowed
           }
         });
       }
@@ -353,17 +353,17 @@ export class AdminController {
           try {
             // First check if schema exists before querying
             const { prisma } = await import('../config/database');
-            
+
             const schemaCheckQuery = `
               SELECT EXISTS(
                 SELECT 1 FROM information_schema.schemata 
                 WHERE schema_name = $1
               ) as schema_exists
             `;
-            
+
             const schemaCheckResult = await prisma.$queryRawUnsafe(schemaCheckQuery, tenant.schemaName);
-            const schemaExists = schemaCheckResult?.[0]?.schema_exists;
-            
+            const schemaExists = schemaCheckResult?.[ 0 ]?.schema_exists;
+
             if (schemaExists) {
               // Only query stats if schema exists
               const statsQuery = `
@@ -377,13 +377,13 @@ export class AdminController {
 
               const result = await prisma.$queryRawUnsafe(statsQuery);
 
-              if (result && result[0]) {
+              if (result && result[ 0 ]) {
                 stats = {
-                  clients: result[0].clients || 0,
-                  projects: result[0].projects || 0,
-                  tasks: result[0].tasks || 0,
-                  transactions: result[0].transactions || 0,
-                  invoices: result[0].invoices || 0,
+                  clients: result[ 0 ].clients || 0,
+                  projects: result[ 0 ].projects || 0,
+                  tasks: result[ 0 ].tasks || 0,
+                  transactions: result[ 0 ].transactions || 0,
+                  invoices: result[ 0 ].invoices || 0,
                 };
               }
             }
@@ -513,7 +513,7 @@ export class AdminController {
       // Validar se o tenant existe
       const tenants = await database.getAllTenants();
       const tenant = tenants.rows.find((t: any) => t.id === id);
-      
+
       if (!tenant) {
         return res.status(404).json({
           error: 'Tenant not found',
@@ -560,7 +560,7 @@ export class AdminController {
   async getGlobalMetrics(req: Request, res: Response) {
     try {
       // Métricas reais do banco
-      const [tenants, users, registrationKeys] = await Promise.all([
+      const [ tenants, users, registrationKeys ] = await Promise.all([
         database.getAllTenants(),
         database.getAllUsers(),
         database.getAllRegistrationKeys()

@@ -158,7 +158,7 @@ export function KeyUsageDialog({ registrationKey, open, onOpenChange }: KeyUsage
             </div>
           </div>
 
-          <Separator />
+          {/* <Separator /> */}
 
           {/* Usage History */}
           <div>

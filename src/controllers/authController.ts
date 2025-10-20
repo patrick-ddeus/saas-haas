@@ -33,7 +33,7 @@ export class AuthController {
         validatedData.key
       );
 
-      console.log('Registration successful:', { userId: user.id, tenantId: user.tenant_id });
+      console.log('Registration successful:', { userId: user.id, tenantId: user.tenantId });
 
       res.status(201).json({
         message: 'Registration successful',
@@ -41,8 +41,8 @@ export class AuthController {
           id: user.id,
           email: user.email,
           name: user.name,
-          accountType: user.accountType || user.account_type,
-          tenantId: user.tenantId || user.tenant_id,
+          accountType: user.accountType || user.accountType,
+          tenantId: user.tenantId || user.tenantId,
           tenantName: 'Default Tenant',
         },
         tokens,
@@ -64,10 +64,10 @@ export class AuthController {
 
       const { user, tokens } = await authService.loginUser(validatedData.email, validatedData.password);
 
-      console.log('Login successful:', { userId: user.id, tenantId: user.tenant_id });
+      console.log('Login successful:', { userId: user.id, tenantId: user.tenantId });
 
       // Verificar se o tenant existe e está ativo
-      if (user.tenant && !user.tenant.isActive) {
+      if (user.tenantId && !user.tenant.isActive) {
         return res.status(403).json({
           error: 'Acesso negado',
           message: 'Sua conta está inativa. Entre em contato com o administrador.',
@@ -94,8 +94,8 @@ export class AuthController {
           id: user.id,
           email: user.email,
           name: user.name,
-          accountType: user.accountType || user.account_type,
-          tenantId: user.tenantId || user.tenant_id,
+          accountType: user.accountType,
+          tenantId: user.tenantId,
           tenantName: 'Default Tenant',
         },
         tokens,
@@ -130,7 +130,7 @@ export class AuthController {
   async logout(req: Request, res: Response) {
     try {
       const authHeader = req.headers.authorization;
-      const token = authHeader?.split(' ')[1];
+      const token = authHeader?.split(' ')[ 1 ];
 
       if (token) {
         try {

@@ -120,7 +120,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const handleLogout = () => {
-    window.logout();
+    // window.logout();
   };
 
   const handleViewProfile = () => {

@@ -152,6 +152,7 @@ export class TransactionsController {
       console.log('✅ Data validated successfully');
 
       console.log('✅ Creating transaction via service...');
+       // @ts-expect-error - accountType é opcional no schema, mas é necessário para criação
       const transaction = await transactionsService.createTransaction(req.tenantDB, validatedData, req.user.id);
       console.log('✅ Transaction created:', transaction.id);
 

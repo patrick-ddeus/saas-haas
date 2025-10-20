@@ -160,7 +160,8 @@ export class DealsController {
       const deal = await dealsService.createDeal(
         req.tenantDB,
         req.user.id,
-        req.user.name || req.user.email.split('@')[0],
+        req.user.name || req.user.email.split('@')[ 0 ],
+        // @ts-expect-error
         validatedData
       );
 

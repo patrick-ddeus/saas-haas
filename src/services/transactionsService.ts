@@ -24,7 +24,7 @@ export interface Transaction {
   description: string;
   date: string;
   payment_method?: 'pix' | 'credit_card' | 'debit_card' | 'bank_transfer' | 'boleto' | 'cash' | 'check';
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   project_id?: string;
   project_title?: string;
   client_id?: string;

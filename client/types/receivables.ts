@@ -250,7 +250,6 @@ export interface DashboardRecebiveis {
   // Contadores principais
   faturasPagas: number;
   faturasPendentes: number;
-  faturasVencidas: number;
   faturasProximoVencimento: number; // 3 dias
   
   // Valores financeiros
@@ -267,7 +266,8 @@ export interface DashboardRecebiveis {
   // Próximas ações
   notificacoesAgendadas: number;
   faturas3Dias: Invoice[];
-  faturasVencidas: Invoice[];
+  faturasVencidas: number;
+  // faturasVencidas: Invoice[];
   
   // Performance
   faturamentoMensal: number;

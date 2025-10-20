@@ -52,7 +52,7 @@ export class RegistrationKeyService {
     const data = await database.getAllRegistrationKeys();
     
     if (tenantId) {
-      return data.filter(key => key.tenant_id === tenantId);
+      return data.filter(key => key.tenantId === tenantId);
     }
     
     return data;
@@ -62,7 +62,7 @@ export class RegistrationKeyService {
     const data = await database.getAllRegistrationKeys();
     
     if (tenantId) {
-      return data.filter(key => key.tenant_id === tenantId);
+      return data.filter(key => key.tenantId === tenantId);
     }
     
     return data;
@@ -91,13 +91,13 @@ export class RegistrationKeyService {
 
     return {
       id: key.id,
-      accountType: key.account_type,
-      usesAllowed: key.uses_allowed,
-      usesLeft: key.uses_left,
-      usedLogs: key.used_logs,
+      accountType: key.accountType,
+      usesAllowed: key.usesAllowed,
+      usesLeft: key.usesLeft,
+      usedLogs: key.usedLogs,
       revoked: key.revoked,
-      expiresAt: key.expires_at,
-      createdAt: key.created_at,
+      expiresAt: key.expiresAt,
+      createdAt: key.createdAt,
     };
   }
 }

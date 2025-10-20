@@ -257,7 +257,7 @@ export function AdminTenants() {
                             <Badge className={getPlanBadgeColor(tenant.planType)}>
                               {tenant.planType.toUpperCase()}
                             </Badge>
-                            {tenant.planExpiresAt && (
+                            {/* {tenant.planExpiresAt && (
                               <div className="text-xs text-muted-foreground mt-1">
                                 Expires: {new Date(tenant.planExpiresAt).toLocaleDateString()}
                                 {isExpiringSoon(tenant.planExpiresAt) && (
@@ -267,7 +267,7 @@ export function AdminTenants() {
                                   <AlertTriangle className="h-3 w-3 inline ml-1 text-red-500" />
                                 )}
                               </div>
-                            )}
+                            )} */}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
@@ -311,7 +311,7 @@ export function AdminTenants() {
                                 )}
                               </Button>
                             </div>
-                            {isExpired(tenant.planExpiresAt) && (
+                            {/* {isExpired(tenant.planExpiresAt) && (
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="destructive">
                                   Expired
@@ -325,7 +325,7 @@ export function AdminTenants() {
                                   Renovar Plano
                                 </Button>
                               </div>
-                            )}
+                            )} */}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center text-sm text-muted-foreground">

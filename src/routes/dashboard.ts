@@ -15,8 +15,8 @@ router.use(validateTenantAccess);
 // GET /api/dashboard - Unified endpoint
 router.get('/', (req, res, next) => {
   console.log('🎯 Dashboard route hit: GET /api/dashboard');
-  console.log('👤 User authenticated:', !!req.user);
-  console.log('🏢 Tenant ID:', req.tenantId);
+  // console.log('👤 User authenticated:', !!req.user);
+  // console.log('🏢 Tenant ID:', req.tenantId);
   next();
 }, dashboardController.getDashboard);
 

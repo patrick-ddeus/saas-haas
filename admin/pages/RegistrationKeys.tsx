@@ -396,9 +396,9 @@ export function AdminRegistrationKeys() {
                               <p className="text-sm font-medium text-green-700">👤 {key.userInfo.name}</p>
                             </div>
                             <p className="text-xs text-gray-600 pl-4">{key.userInfo.email}</p>
-                            {key.userInfo.accountType && (
+                            {key.accountType && (
                               <p className="text-xs text-blue-600 pl-4 font-medium">
-                                🏷️ {key.userInfo.accountType}
+                                🏷️ {key.accountType}
                               </p>
                             )}
                             <p className="text-xs text-gray-500 pl-4">

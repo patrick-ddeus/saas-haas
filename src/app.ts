@@ -1,12 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Import routes
 import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 import clientsRoutes from './routes/clients';
@@ -20,6 +16,11 @@ import adminRoutes from './routes/admin';
 import adminAuthRoutes from './routes/adminAuth';
 import notificationsRoutes from './routes/notifications';
 import publicationsRoutes from './routes/publications';
+import adminApiConfigRoutes from './routes/adminApiConfig';
+
+dotenv.config({
+  path: '../.env',
+})
 
 export function createApp() {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp() {
 
   // API routes - Order matters! Most specific routes first
   app.use('/api/admin/auth', adminAuthRoutes);
+  app.use('/api/admin/api-configs', adminApiConfigRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/dashboard', dashboardRoutes);
