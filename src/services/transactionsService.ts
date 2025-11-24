@@ -58,7 +58,7 @@ export interface CreateTransactionData {
   recurringFrequency?: 'monthly' | 'quarterly' | 'yearly';
 }
 
-export interface UpdateTransactionData extends Partial<CreateTransactionData> {}
+export interface UpdateTransactionData extends Partial<CreateTransactionData> { }
 
 export interface TransactionFilters {
   page?: number;
@@ -92,8 +92,8 @@ export class TransactionsService {
         category VARCHAR NOT NULL,
         description VARCHAR NOT NULL,
         date DATE NOT NULL,
-        payment_method VARCHAR CHECK (payment_method IN ('pix', 'credit_card', 'debit_card', 'bank_transfer', 'boleto', 'cash', 'check')),
-        status VARCHAR DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'cancelled')),
+        payment_method VARCHAR,
+        status VARCHAR DEFAULT 'confirmed',
         project_id VARCHAR,
         project_title VARCHAR,
         client_id VARCHAR,
@@ -101,7 +101,7 @@ export class TransactionsService {
         tags JSONB DEFAULT '[]',
         notes TEXT,
         is_recurring BOOLEAN DEFAULT FALSE,
-        recurring_frequency VARCHAR CHECK (recurring_frequency IN ('monthly', 'quarterly', 'yearly')),
+        recurring_frequency VARCHAR,
         created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
@@ -140,7 +140,7 @@ export class TransactionsService {
     const limit = filters.limit || 50;
     const offset = (page - 1) * limit;
 
-    let whereConditions = ['is_active = TRUE'];
+    let whereConditions = [ 't.is_active = TRUE' ];
     let queryParams: any[] = [];
     let paramIndex = 1;
 
@@ -213,20 +213,22 @@ export class TransactionsService {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const transactionsQuery = `
-      SELECT * FROM \${schema}.${this.tableName}
+      SELECT t.*, COALESCE(u.name, t.created_by) AS created_by_name
+      FROM \${schema}.${this.tableName} t
+      LEFT JOIN public.users u ON u.id::text = t.created_by
       ${whereClause}
-      ORDER BY date DESC, created_at DESC
+      ORDER BY t.date DESC, t.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} t ${whereClause}`;
 
-    const [transactions, countResult] = await Promise.all([
-      queryTenantSchema<Transaction>(tenantDB, transactionsQuery, [...queryParams, limit, offset]),
-      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
+    const [ transactions, countResult ] = await Promise.all([
+      queryTenantSchema<Transaction>(tenantDB, transactionsQuery, [ ...queryParams, limit, offset ]),
+      queryTenantSchema<{ total: string }>(tenantDB, countQuery, queryParams)
     ]);
 
-    const total = parseInt(countResult[0]?.total || '0');
+    const total = parseInt(countResult[ 0 ]?.total || '0');
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -241,9 +243,14 @@ export class TransactionsService {
   async getTransactionById(tenantDB: TenantDatabase, transactionId: string): Promise<Transaction | null> {
     await this.ensureTables(tenantDB);
 
-    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
-    const result = await queryTenantSchema<Transaction>(tenantDB, query, [transactionId]);
-    return result[0] || null;
+    const query = `
+      SELECT t.*, COALESCE(u.name, t.created_by) AS created_by_name
+      FROM \${schema}.${this.tableName} t
+      LEFT JOIN public.users u ON u.id::text = t.created_by
+      WHERE t.id = $1 AND t.is_active = TRUE
+    `;
+    const result = await queryTenantSchema<Transaction>(tenantDB, query, [ transactionId ]);
+    return result[ 0 ] || null;
   }
 
   /**
@@ -363,7 +370,7 @@ export class TransactionsService {
     `;
 
     const result = await queryTenantSchema<any>(tenantDB, query, params);
-    const stats = result[0];
+    const stats = result[ 0 ];
 
     const totalIncome = parseFloat(stats.total_income || '0');
     const totalExpense = parseFloat(stats.total_expense || '0');
@@ -392,7 +399,7 @@ export class TransactionsService {
   }[]> {
     await this.ensureTables(tenantDB);
 
-    let whereConditions = ['is_active = TRUE'];
+    let whereConditions = [ 'is_active = TRUE' ];
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -403,13 +410,15 @@ export class TransactionsService {
     }
 
     if (dateFrom) {
-      whereConditions.push(`date >= $${paramIndex}`);
+      // envie "2025-09-27" sem ::DATE no valor
+      whereConditions.push(`"date" >= $${paramIndex}::date`);
       params.push(dateFrom);
       paramIndex++;
     }
 
     if (dateTo) {
-      whereConditions.push(`date <= $${paramIndex}`);
+      // usa < dia seguinte para incluir completamente o dia 'dateTo'
+      whereConditions.push(`"date" < ($${paramIndex}::date + INTERVAL '1 day')`);
       params.push(dateTo);
       paramIndex++;
     }
@@ -428,6 +437,8 @@ export class TransactionsService {
       ORDER BY amount DESC
     `;
 
+    console.log("🚀 ~ TransactionsService ~ getTransactionsByCategory ~ params:", params)
+    console.log("🚀 ~ TransactionsService ~ getTransactionsByCategory ~ query:", query)
     const result = await queryTenantSchema<any>(tenantDB, query, params);
 
     return result.map(row => ({

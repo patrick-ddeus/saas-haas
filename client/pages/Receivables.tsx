@@ -6,7 +6,7 @@
  * Integra com Stripe, n8n e WhatsApp para gestão inteligente de recebíveis.
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
 import { ImportBillingModal } from "@/components/Receivables/ImportBillingModal";
 import { InvoiceViewDialog } from "@/components/Receivables/InvoiceViewDialog";
@@ -59,13 +59,10 @@ import {
   Building2,
   User,
 } from "lucide-react";
-import {
-  Invoice,
-  InvoiceStatus,
-  ClienteCobranca,
-  DashboardRecebiveis,
-  NotificacaoAutomatica,
-} from "@/types/receivables";
+import { Invoice, InvoiceStatus, ClienteCobranca } from "@/types/receivables";
+import { useInvoices } from "@/hooks/useInvoices";
+import { useClients } from "@/hooks/useClients";
+import { apiService } from "@/services/apiService";
 
 /**
  * DADOS MOCK PARA DEMONSTRAÇÃO
@@ -78,23 +75,25 @@ import {
  * - GET /api/recebiveis/notificacoes - Notificações automáticas
  */
 
-const mockDashboard: DashboardRecebiveis = {
-  faturasPagas: 68,
-  faturasPendentes: 15,
-  faturasVencidas: 1,
-  faturasProximoVencimento: 4,
-  valorTotal: 187500,
-  valorPago: 142800,
-  valorPendente: 39200,
-  valorVencido: 5500,
-  novosClientes: 12,
-  taxaCobranças: 96.8,
-  tempoMedioPagamento: 8,
-  notificacoesAgendadas: 6,
-  faturas3Dias: [],
-  faturamentoMensal: 142800,
-  crescimentoMensal: 22.4,
-  clientesAtivos: 84,
+const mapApiStatusToUI = (status?: string): InvoiceStatus => {
+  const s = (status || '').toLowerCase();
+  if (s === 'draft') return 'nova';
+  if (s === 'pending' || s === 'sent' || s === 'viewed' || s === 'approved') return 'pendente';
+  if (s === 'paid') return 'paga';
+  if (s === 'overdue') return 'pendente';
+  if (s === 'cancelled') return 'cancelada';
+  return 'processando';
+};
+
+const mapUIStatusToApi = (status: InvoiceStatus): string => {
+  switch (status) {
+    case 'nova': return 'draft';
+    case 'pendente': return 'pending';
+    case 'paga': return 'paid';
+    case 'cancelada': return 'cancelled';
+    case 'processando': return 'sent';
+    default: return 'pending';
+  }
 };
 
 const mockInvoices: Invoice[] = [
@@ -337,7 +336,44 @@ export function Receivables() {
   const [ showClientViewDialog, setShowClientViewDialog ] = useState(false);
   const [ viewingInvoice, setViewingInvoice ] = useState<Invoice | null>(null);
   const [ viewingClient, setViewingClient ] = useState<any>(null);
-  const [ invoices, setInvoices ] = useState<Invoice[]>(mockInvoices);
+  const { invoices: invoicesRaw, isLoading: isLoadingInvoices, loadInvoices, createInvoice, updateInvoice, deleteInvoice } = useInvoices();
+  const { clients } = useClients();
+  const mapApiInvoiceToReceivable = (i: any): Invoice => ({
+    id: i.id,
+    clienteId: i.client_id || '',
+    numeroFatura: i.number,
+    valor: parseFloat(i.amount || 0),
+    descricao: i.title || i.description || '',
+    servicoPrestado: i.servico_prestado || i.title || (Array.isArray(i.items) && i.items[0]?.description) || '',
+    dataEmissao: new Date(i.created_at || new Date().toISOString()),
+    dataVencimento: new Date(i.due_date || new Date().toISOString()),
+    dataPagamento: i.payment_date ? new Date(i.payment_date) : undefined,
+    status: mapApiStatusToUI(i.status),
+    tentativasCobranca: parseInt(i.tentativas_cobranca || 0),
+    stripeInvoiceId: undefined,
+    stripeCustomerId: undefined,
+    stripePaymentIntentId: undefined,
+    linkPagamento: i.link_pagamento || '',
+    webhookN8nId: undefined,
+    ultimaNotificacao: i.last_reminder_at ? new Date(i.last_reminder_at) : undefined,
+    proximaNotificacao: undefined,
+    recorrente: !!i.recorrente,
+    intervaloDias: i.intervalo_dias || undefined,
+    proximaFaturaData: i.proxima_fatura_data ? new Date(i.proxima_fatura_data) : undefined,
+    criadoPor: i.created_by_name || i.created_by || '',
+    criadoEm: new Date(i.created_at || new Date().toISOString()),
+    atualizadoEm: new Date(i.updated_at || new Date().toISOString()),
+    observacoes: i.notes || '',
+    clienteNome: i.client_name || '',
+    clienteEmail: i.client_email || '',
+    clienteTelefone: i.client_phone || '',
+  });
+  const invoices: Invoice[] = useMemo(() => {
+    return Array.isArray(invoicesRaw) ? invoicesRaw.map(mapApiInvoiceToReceivable) : [];
+  }, [ invoicesRaw ]);
+  console.log("🚀 ~ Receivables ~ invoices:", invoices)
+
+  useEffect(() => { loadInvoices(); }, []);
   const [ notifications, setNotifications ] = useState<any[]>([]);
 
   /**
@@ -360,35 +396,23 @@ export function Receivables() {
    * 4. Log de todas as notificações enviadas
    */
   const handleNotificarCliente = async (invoice: Invoice) => {
-    console.log("Enviando notificação para fatura:", invoice.numeroFatura);
-
-    // BACKEND: POST /api/recebiveis/notificar
-    // Payload: { faturaId, tipo: 'manual', canal: 'whatsapp' }
-
-    // Webhook para n8n
-    const webhookPayload = {
-      evento: "lembrete_pagamento",
-      fatura: {
-        id: invoice.id,
-        numero: invoice.numeroFatura,
-        valor: invoice.valor,
-        vencimento: invoice.dataVencimento.toISOString(),
-        linkPagamento: invoice.linkPagamento || "",
-      },
-      cliente: {
-        // Buscar dados do cliente
-        id: invoice.clienteId,
-        nome: "Cliente Exemplo",
-        whatsapp: "5511999999999",
-      },
-    };
-
-    console.log("Payload para n8n:", webhookPayload);
+    await updateInvoice(invoice.id, { status: 'sent' } as any);
+    try {
+      await apiService.createNotification({
+        type: 'invoice',
+        title: 'Lembrete de Pagamento',
+        message: `Lembrete enviado para a fatura ${invoice.numeroFatura}`,
+        payload: { invoiceId: invoice.id, amount: invoice.valor, dueDate: invoice.dataVencimento.toISOString() },
+        link: '/cobranca'
+      });
+    } catch { }
   };
 
-  const handleEnviarCobrancaLote = () => {
-    console.log("Enviando cobrança em lote para faturas:", selectedInvoices);
-    // BACKEND: POST /api/recebiveis/cobranca-lote
+  const handleEnviarCobrancaLote = async () => {
+    for (const id of selectedInvoices) {
+      await updateInvoice(id, { status: 'sent' } as any);
+    }
+    setSelectedInvoices([]);
   };
 
   const filteredInvoices = invoices
@@ -434,41 +458,52 @@ export function Receivables() {
       );
     });
 
-  const handleImportBilling = (importedInvoices: any[]) => {
-    // Adicionar faturas importadas ao estado
-    const newInvoices = importedInvoices.map((imported) => ({
-      ...imported,
-      id: `imported_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    }));
-
-    setInvoices((prev) => [ ...prev, ...newInvoices ]);
-
-    // Notificação de sucesso
-    console.log(
-      `✅ ${importedInvoices.length} fatura(s) importada(s) com sucesso!`,
-    );
+  const handleImportBilling = async (importedInvoices: any[]) => {
+    for (const inv of importedInvoices) {
+      const payload = {
+        number: inv.numeroFatura || `INV-${Date.now()}`,
+        title: inv.descricao || 'Fatura',
+        description: inv.observacoes || '',
+        clientId: inv.clienteId || undefined,
+        clientName: inv.clienteNome || '',
+        clientEmail: inv.clienteEmail || undefined,
+        clientPhone: inv.clienteTelefone || undefined,
+        amount: inv.valor || 0,
+        currency: 'BRL',
+        status: 'pending',
+        dueDate: inv.dataVencimento?.toISOString?.() ? inv.dataVencimento.toISOString().split('T')[ 0 ] : inv.dataVencimento,
+        items: [ { id: Date.now().toString(), description: inv.servicoPrestado || 'Serviço', quantity: 1, rate: inv.valor || 0, amount: inv.valor || 0 } ],
+        servico_prestado: inv.servicoPrestado || undefined,
+        tags: [],
+        notes: inv.observacoes || ''
+      } as any;
+      await createInvoice(payload);
+    }
+    await loadInvoices();
   };
 
-  const handleCreateInvoice = (newInvoices: any[]) => {
-    // Adicionar novas faturas ao estado
-    const invoicesWithIds = newInvoices.map((invoice) => ({
-      ...invoice,
-      id: `new_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    }));
-
-    setInvoices((prev) => [ ...invoicesWithIds, ...prev ]);
-
-    // Notificação de sucesso
-    console.log(
-      `��� ${newInvoices.length} nova(s) fatura(s) criada(s) com sucesso!`,
-    );
-
-    // Se for recorrente, mostrar mensagem específica
-    if (newInvoices.length > 1) {
-      console.log(
-        `🔄 Fatura recorrente criada com ${newInvoices.length} parcelas`,
-      );
+  const handleCreateInvoice = async (newInvoices: any[]) => {
+    for (const inv of newInvoices) {
+      const payload = {
+        number: inv.numeroFatura || `INV-${Date.now()}`,
+        title: inv.descricao || 'Fatura',
+        description: inv.observacoes || '',
+        clientId: inv.clienteId || undefined,
+        clientName: inv.clienteNome || '',
+        clientEmail: inv.clienteEmail || undefined,
+        clientPhone: inv.clienteTelefone || undefined,
+        amount: inv.valor || 0,
+        currency: 'BRL',
+        status: 'pending',
+        dueDate: inv.dataVencimento?.toISOString?.() ? inv.dataVencimento.toISOString().split('T')[ 0 ] : inv.dataVencimento,
+        items: [ { id: Date.now().toString(), description: inv.servicoPrestado || 'Serviço', quantity: 1, rate: inv.valor || 0, amount: inv.valor || 0 } ],
+        servico_prestado: inv.servicoPrestado || undefined,
+        tags: [],
+        notes: inv.observacoes || ''
+      } as any;
+      await createInvoice(payload);
     }
+    await loadInvoices();
   };
 
   const handleViewInvoice = (invoice: Invoice) => {
@@ -483,48 +518,26 @@ export function Receivables() {
     setShowViewDialog(true);
   };
 
-  const handleDeleteInvoice = (invoice: Invoice) => {
-    if (confirm(`Deseja realmente excluir a fatura ${invoice.numeroFatura}?`)) {
-      setInvoices((prev) => prev.filter((inv) => inv.id !== invoice.id));
-      setSelectedInvoices((prev) => prev.filter((id) => id !== invoice.id));
-
-      // Fechar dialog automaticamente se estiver aberto
-      if (showViewDialog && viewingInvoice?.id === invoice.id) {
-        setShowViewDialog(false);
-        setViewingInvoice(null);
-      }
-
-      console.log("✅ Fatura excluída:", invoice.numeroFatura);
+  const handleDeleteInvoice = async (invoice: Invoice) => {
+    if (!confirm(`Deseja realmente excluir a fatura ${invoice.numeroFatura}?`)) return;
+    await deleteInvoice(invoice.id);
+    setSelectedInvoices((prev) => prev.filter((id) => id !== invoice.id));
+    if (showViewDialog && viewingInvoice?.id === invoice.id) {
+      setShowViewDialog(false);
+      setViewingInvoice(null);
     }
+    await loadInvoices();
   };
 
-  const handleUpdateInvoiceStatus = (invoice: Invoice, newStatus: any) => {
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === invoice.id
-          ? { ...inv, status: newStatus, atualizadoEm: new Date() }
-          : inv,
-      ),
-    );
-
-    // Feedback visual para o usuário
-    const statusLabels = {
-      nova: "Nova",
-      pendente: "Pendente",
-      processando: "Processando",
-      paga: "Paga",
-      vencida: "Vencida",
-      cancelada: "Cancelada",
-    };
-
-    const statusLabel =
-      statusLabels[ newStatus as keyof typeof statusLabels ] || newStatus;
-    console.log(
-      `✅ Status da fatura ${invoice.numeroFatura} alterado para: ${statusLabel}`,
-    );
-
-    // Se em produção, você pode usar um toast aqui ao invés de alert
-    // toast.success(`Status alterado para: ${statusLabel}`);
+  const handleUpdateInvoiceStatus = async (invoice: Invoice, newStatus: InvoiceStatus) => {
+    const apiStatus = mapUIStatusToApi(newStatus);
+    const updatePayload: any = { status: apiStatus };
+    if (newStatus === 'paga') {
+      updatePayload.paymentStatus = 'paid';
+      updatePayload.paymentDate = new Date().toISOString().split('T')[ 0 ];
+    }
+    await updateInvoice(invoice.id, updatePayload);
+    await loadInvoices();
   };
 
   // Gerar lista de clientes baseada nas faturas
@@ -533,9 +546,9 @@ export function Receivables() {
 
     invoices.forEach((invoice) => {
       const clientId = invoice.clienteId;
-      const clientName = "Cliente Desconhecido";
-      const clientEmail = ""
-      const clientPhone = ""
+      const clientName = invoice.clienteNome || "Cliente";
+      const clientEmail = invoice.clienteEmail || "";
+      const clientPhone = invoice.clienteTelefone || "";
 
       if (!clientsMap.has(clientId)) {
         clientsMap.set(clientId, {
@@ -543,7 +556,7 @@ export function Receivables() {
           nome: clientName,
           email: clientEmail,
           telefone: clientPhone,
-          whatsapp: mockClientes.find((c) => c.id === clientId)?.whatsapp,
+          whatsapp: undefined,
           totalFaturado: 0,
           totalPago: 0,
           faturasPendentes: 0,
@@ -569,7 +582,6 @@ export function Receivables() {
         client.faturasPendentes += 1;
       }
     });
-
     return Array.from(clientsMap.values());
   };
 
@@ -593,14 +605,16 @@ export function Receivables() {
     );
   };
 
-  const handleSaveInvoice = (invoiceData: any) => {
-    // Atualizar fatura na lista
-    setInvoices((prev) =>
-      prev.map((inv) => (inv.id === invoiceData.id ? invoiceData : inv)),
-    );
-
-    console.log("✅ Fatura atualizada:", invoiceData);
-    alert("✅ Fatura atualizada com sucesso!");
+  const handleSaveInvoice = async (invoiceData: any) => {
+    await updateInvoice(invoiceData.id, {
+      number: invoiceData.numeroFatura,
+      title: invoiceData.descricao,
+      amount: invoiceData.valor,
+      dueDate: invoiceData.dataVencimento?.toISOString?.() ? invoiceData.dataVencimento.toISOString().split('T')[ 0 ] : invoiceData.dataVencimento,
+      status: mapUIStatusToApi(invoiceData.status),
+      servico_prestado: invoiceData.servicoPrestado || undefined
+    } as any);
+    await loadInvoices();
   };
 
   const handleEditNotification = (notification: any) => {
@@ -619,6 +633,26 @@ export function Receivables() {
     const dias = calcularDiasVencimento(invoice.dataVencimento);
     return dias <= 3 && dias >= 0 && invoice.status === "pendente";
   });
+
+  const dashboard = useMemo(() => {
+    const total = invoices.reduce((sum, i) => sum + (i.valor || 0), 0);
+    const pagas = invoices.filter(i => i.status === 'paga');
+    const pendentes = invoices.filter(i => i.status === 'pendente' || i.status === 'nova');
+    const vencidas = invoices.filter(i => calcularDiasVencimento(i.dataVencimento) < 0 && (i.status === 'pendente' || i.status === 'nova'));
+    const valorPago = pagas.reduce((sum, i) => sum + (i.valor || 0), 0);
+    const valorPendente = pendentes.reduce((sum, i) => sum + (i.valor || 0), 0);
+    const valorVencido = vencidas.reduce((sum, i) => sum + (i.valor || 0), 0);
+    return {
+      faturasPagas: pagas.length,
+      faturasPendentes: pendentes.length,
+      faturasProximoVencimento: invoicesProximoVencimento.length,
+      faturasVencidas: vencidas.length,
+      valorTotal: total,
+      valorPago,
+      valorPendente,
+      valorVencido,
+    };
+  }, [ invoices, invoicesProximoVencimento ]);
 
   return (
     <DashboardLayout>
@@ -656,10 +690,10 @@ export function Receivables() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {mockDashboard.faturasPagas}
+                {dashboard.faturasPagas}
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(mockDashboard.valorPago)}
+                {formatCurrency(dashboard.valorPago)}
               </p>
             </CardContent>
           </Card>
@@ -671,10 +705,10 @@ export function Receivables() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
-                {mockDashboard.faturasPendentes}
+                {dashboard.faturasPendentes}
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(mockDashboard.valorPendente)}
+                {formatCurrency(dashboard.valorPendente)}
               </p>
             </CardContent>
           </Card>
@@ -688,7 +722,7 @@ export function Receivables() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                {mockDashboard.faturasProximoVencimento}
+                {dashboard.faturasProximoVencimento}
               </div>
               <p className="text-xs text-muted-foreground">3 dias ou menos</p>
             </CardContent>
@@ -701,10 +735,10 @@ export function Receivables() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {/* {mockDashboard.faturasVencidas} */}
+                {dashboard.faturasVencidas}
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(mockDashboard.valorVencido)}
+                {formatCurrency(dashboard.valorVencido)}
               </p>
             </CardContent>
           </Card>
@@ -812,9 +846,7 @@ export function Receivables() {
                           const diasVencimento = calcularDiasVencimento(
                             invoice.dataVencimento,
                           );
-                          const cliente = mockClientes.find(
-                            (c) => c.id === invoice.clienteId,
-                          );
+                          const cliente = Array.isArray(clients) ? (clients as any[]).find((c) => c.id === invoice.clienteId) : undefined;
 
                           return (
                             <TableRow
@@ -859,7 +891,7 @@ export function Receivables() {
                               <TableCell>
                                 <div className="space-y-1">
                                   <span className="font-medium">
-                                    {cliente?.nome ||
+                                    {cliente?.name ||
                                       "Cliente não identificado"}
                                   </span>
                                   <div className="text-xs text-muted-foreground">

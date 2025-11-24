@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { v4 as uuidv4 } from 'uuid';
+
 import {
   Table,
   TableBody,
@@ -38,8 +40,12 @@ import {
   XCircle,
   Calendar,
   AlertTriangle,
+  RefreshCcw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useAdminApi } from '../hooks/useAdminApi';
+import { Input } from '../../client/components/ui/input';
 
 interface RegistrationKey {
   id: string;
@@ -70,14 +76,16 @@ interface RegistrationKey {
 
 export function AdminRegistrationKeys() {
   const { getRegistrationKeys, createRegistrationKey, revokeRegistrationKey, deleteRegistrationKey, getTenants, isLoading } = useAdminApi();
-  const [keys, setKeys] = useState<RegistrationKey[]>([]);
-  const [tenants, setTenants] = useState<any[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
-  const [selectedAccountType, setSelectedAccountType] = useState<string>('SIMPLES');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isLoadingKeys, setIsLoadingKeys] = useState(true);
+  const [ keys, setKeys ] = useState<RegistrationKey[]>([]);
+  const [ tenants, setTenants ] = useState<any[]>([]);
+  const [ selectedTenantId, setSelectedTenantId ] = useState<string>('');
+  const [ selectedAccountType, setSelectedAccountType ] = useState<string>('SIMPLES');
+  const [ error, setError ] = useState<string | null>(null);
+  const [ success, setSuccess ] = useState<string | null>(null);
+  const [ isCreateDialogOpen, setIsCreateDialogOpen ] = useState(false);
+  const [ isLoadingKeys, setIsLoadingKeys ] = useState(true);
+  const [ registrationKey, setRegistrationKey ] = useState<string>('');
+  const [ showKey, setShowKey ] = useState<boolean>(false);
 
   useEffect(() => {
     loadKeys();
@@ -97,9 +105,9 @@ export function AdminRegistrationKeys() {
     try {
       setError(null);
       setIsLoadingKeys(true);
-      
+
       const data = await getRegistrationKeys();
-      
+
       // Ensure data is an array
       if (Array.isArray(data)) {
         setKeys(data);
@@ -121,7 +129,7 @@ export function AdminRegistrationKeys() {
   const handleCreateKey = async () => {
     try {
       setError(null);
-      
+
       if (!selectedTenantId) {
         setError('Tenant selection is required. Please select a tenant before creating a registration key.');
         return;
@@ -142,10 +150,11 @@ export function AdminRegistrationKeys() {
       const newKey = await createRegistrationKey({
         tenantId: selectedTenantId,
         accountType: selectedAccountType,
+        key: registrationKey,
         usesAllowed: 1,
         singleUse: true,
       });
-      
+
       setSuccess(`Registration key created successfully: ${newKey.key}`);
       setIsCreateDialogOpen(false);
       setSelectedTenantId('');
@@ -180,7 +189,7 @@ export function AdminRegistrationKeys() {
     }
 
     const confirmMessage = `⚠️ DELETAR REGISTRATION KEY?\n\n🗑️ Esta ação é IRREVERSÍVEL!\n\n📋 DETALHES DA KEY:\n• ID: ${key.id.substring(0, 8)}...\n• Status: ${key.status}\n• Tipo: ${key.accountType}\n• Tenant: ${key.tenantInfo?.name || 'Sem tenant'}\n• Usuário Vinculado: ${key.userInfo ? key.userInfo.name : 'Nenhum (Key Inativa)'}\n\n${key.userInfo ? '❌ ATENÇÃO: Esta key já foi UTILIZADA e NÃO pode ser deletada!' : '✅ Esta key está INATIVA e pode ser deletada com segurança.'}\n\nTem certeza que deseja DELETAR permanentemente?`;
-    
+
     if (!confirm(confirmMessage)) {
       return;
     }
@@ -224,7 +233,7 @@ export function AdminRegistrationKeys() {
       GERENCIAL: 'bg-purple-100 text-purple-800',
     };
     return (
-      <Badge className={colors[accountType as keyof typeof colors] || 'bg-gray-100 text-gray-800'}>
+      <Badge className={colors[ accountType as keyof typeof colors ] || 'bg-gray-100 text-gray-800'}>
         {accountType}
       </Badge>
     );
@@ -284,6 +293,24 @@ export function AdminRegistrationKeys() {
                       <SelectItem value="GERENCIAL">Conta Gerencial</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="key">Registration Key</Label>
+                  <div className='w-full relative'>
+                    <Input id="key" value={registrationKey} type={showKey ? 'text' : 'password'} onChange={(e) => {
+                      setRegistrationKey(e.target.value);
+                    }} />
+                    {showKey ? <Eye className="absolute top-[30%] right-3 h-4 w-4 ml-2 cursor-pointer" onClick={() => {
+                      setShowKey(!showKey);
+                    }} /> : <EyeOff className="absolute top-[30%] right-3 h-4 w-4 ml-2 cursor-pointer" onClick={() => {
+                      setShowKey(!showKey);
+                    }} />}
+                  </div>
+                  <Button size='sm' onClick={() => {
+                    setRegistrationKey(uuidv4());
+                  }}>
+                    <span>Gerar aleatoriamente</span><RefreshCcw className="h-2 w-2" />
+                  </Button>
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-4">
@@ -405,11 +432,10 @@ export function AdminRegistrationKeys() {
                               📅 Registrado: {new Date(key.userInfo.usedAt).toLocaleDateString('pt-BR')}
                             </p>
                             <p className="text-xs pl-4">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                key.userInfo.isActive 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${key.userInfo.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                                }`}>
                                 {key.userInfo.isActive ? '✅ Usuário Ativo' : '❌ Usuário Inativo'}
                               </span>
                             </p>
@@ -444,7 +470,7 @@ export function AdminRegistrationKeys() {
                               <XCircle className="h-3 w-3" />
                             </Button>
                           )}
-                          
+
                           {/* Botão Deletar - só para keys INATIVAS (não usadas) */}
                           {key.status === 'ACTIVE' && !key.isUsed && !key.userInfo && (
                             <Button
@@ -458,7 +484,7 @@ export function AdminRegistrationKeys() {
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
-                          
+
                           {/* Indicador visual quando não há ações disponíveis */}
                           {(key.isUsed || key.userInfo || key.status !== 'ACTIVE') && (
                             <div className="text-xs text-gray-400 px-2 py-1">

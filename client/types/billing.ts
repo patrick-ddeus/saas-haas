@@ -47,6 +47,7 @@ export interface Estimate extends BaseDocument {
   number: string; // EST-{id}
   validUntil: string;
   convertedToInvoice?: boolean;
+  
   invoiceId?: string;
 }
 

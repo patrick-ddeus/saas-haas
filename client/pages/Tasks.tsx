@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
 
 interface TasksListViewProps {
   tasks: Task[];
@@ -60,8 +61,9 @@ function TasksListView({
   onEditTask,
   onDeleteTask,
   onViewTask,
-  onMoveTask
-}: TasksListViewProps) {
+  onMoveTask,
+  statusNames
+}: TasksListViewProps & { statusNames?: Record<TaskStatus, string> }) {
   const getStatusColor = (status: TaskStatus) => {
     const colors = {
       not_started: 'bg-red-100 text-red-800',
@@ -74,6 +76,7 @@ function TasksListView({
   };
 
   const getStatusLabel = (status: TaskStatus) => {
+    if (statusNames && statusNames[status]) return statusNames[status];
     const labels = {
       not_started: '🔴 Não Feito',
       in_progress: '🟡 Em Progresso',
@@ -191,6 +194,68 @@ export function Tasks() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
 
+  // Adicionar: labels dinâmicos dos status e editor com persistência por tenant
+  const { user } = useAuth();
+  const STATUS_PREF_KEY = useMemo(
+    () => (user?.tenantId ? `task_status_names:${user.tenantId}` : `task_status_names:default`),
+    [user?.tenantId]
+  );
+
+  const defaultStatusNames: Record<TaskStatus, string> = {
+    not_started: '🔴 Não Feito',
+    in_progress: '🟡 Em Progresso',
+    completed: '🟢 Feito',
+    on_hold: '⏸️ Pausado',
+    cancelled: '❌ Cancelado',
+  };
+
+  const [statusNames, setStatusNames] = useState<Record<TaskStatus, string>>(defaultStatusNames);
+  const [showEditStatuses, setShowEditStatuses] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<Record<TaskStatus, string>>(defaultStatusNames);
+
+  const loadStatusPreferences = useMemo(() => {
+    return () => {
+      try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem(STATUS_PREF_KEY) : null;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const keys: TaskStatus[] = ['not_started', 'in_progress', 'completed', 'on_hold', 'cancelled'];
+        if (parsed && typeof parsed === 'object' && keys.every(k => typeof parsed[k] === 'string')) {
+          return parsed as Record<TaskStatus, string>;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+  }, [STATUS_PREF_KEY]);
+
+  const saveStatusPreferences = (next: Record<TaskStatus, string>) => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STATUS_PREF_KEY, JSON.stringify(next));
+      }
+      setStatusNames(next);
+      setShowEditStatuses(false);
+    } catch (e) {
+      console.warn('Falha ao salvar nomes dos status:', e);
+    }
+  };
+
+  useEffect(() => {
+    const loaded = loadStatusPreferences();
+    if (loaded) {
+      setStatusNames(loaded);
+      setStatusDraft(loaded);
+    }
+  }, [loadStatusPreferences]);
+
+  useEffect(() => {
+    if (showEditStatuses) {
+      setStatusDraft(statusNames);
+    }
+  }, [showEditStatuses, statusNames]);
+
   // Filter tasks based on search, status, priority, and assignee
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -208,31 +273,31 @@ export function Tasks() {
   const taskBoards: TaskBoardType[] = [
     {
       id: 'not_started',
-      name: '🔴 Não Feito',
+      name: statusNames.not_started,
       color: 'red',
       tasks: filteredTasks.filter(task => task.status === 'not_started'),
     },
     {
       id: 'in_progress',
-      name: '🟡 Em Progresso',
+      name: statusNames.in_progress,
       color: 'yellow',
       tasks: filteredTasks.filter(task => task.status === 'in_progress'),
     },
     {
       id: 'completed',
-      name: '🟢 Feito',
+      name: statusNames.completed,
       color: 'green',
       tasks: filteredTasks.filter(task => task.status === 'completed'),
     },
     {
       id: 'on_hold',
-      name: '⏸️ Pausado',
+      name: statusNames.on_hold,
       color: 'gray',
       tasks: filteredTasks.filter(task => task.status === 'on_hold'),
     },
     {
       id: 'cancelled',
-      name: '❌ Cancelado',
+      name: statusNames.cancelled,
       color: 'red',
       tasks: filteredTasks.filter(task => task.status === 'cancelled'),
     },
@@ -430,11 +495,11 @@ export function Tasks() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="not_started">Não Feito</SelectItem>
-                  <SelectItem value="in_progress">Em Progresso</SelectItem>
-                  <SelectItem value="completed">Feito</SelectItem>
-                  <SelectItem value="on_hold">Pausado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                  <SelectItem value="not_started">{statusNames.not_started}</SelectItem>
+                  <SelectItem value="in_progress">{statusNames.in_progress}</SelectItem>
+                  <SelectItem value="completed">{statusNames.completed}</SelectItem>
+                  <SelectItem value="on_hold">{statusNames.on_hold}</SelectItem>
+                  <SelectItem value="cancelled">{statusNames.cancelled}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -497,6 +562,7 @@ export function Tasks() {
             onViewTask={handleViewTask}
             onMoveTask={handleMoveTask}
             onToggleSubtask={handleToggleSubtask}
+            statusNames={statusNames}
           />
         ) : (
           <TasksListView
@@ -505,6 +571,7 @@ export function Tasks() {
             onDeleteTask={handleDeleteTask}
             onViewTask={handleViewTask}
             onMoveTask={handleMoveTask}
+            statusNames={statusNames}
           />
         )}
 
@@ -514,6 +581,7 @@ export function Tasks() {
           onOpenChange={setShowTaskForm}
           task={editingTask}
           onSubmit={handleSubmitTask}
+          isEditing={!!editingTask}
         />
 
         {/* Task View Dialog */}

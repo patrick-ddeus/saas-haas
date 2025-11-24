@@ -85,7 +85,7 @@ export function useDashboard() {
       
       console.log('🔄 Loading dashboard data...');
       // ✅ Usar endpoint completo correto
-      const response = await apiService.get('/api/dashboard');
+      const response = await apiService.get('/dashboard');
       
       console.log('📊 Dashboard response received:', response);
       
@@ -145,26 +145,14 @@ export function useDashboard() {
     }
   };
 
-  const loadRecentActivity = async (limit: number = 10) => {
-    console.log('⚠️ loadRecentActivity: This method is deprecated. Use loadDashboardData instead.');
-    return [];
-  };
-
-  const loadChartData = async (period: string = '30d') => {
-    console.log('⚠️ loadChartData: This method is deprecated. Use loadDashboardData instead.');
-    return null;
-  };
-
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        console.log('🚀 Initializing dashboard data load...');
         await loadDashboardData();
       } catch (error) {
         console.error('Error loading initial dashboard data:', error);
       }
     };
-
     loadInitialData();
   }, []);
 
@@ -175,7 +163,5 @@ export function useDashboard() {
     isLoading,
     error,
     loadDashboardData,
-    loadRecentActivity,
-    loadChartData,
   };
 }

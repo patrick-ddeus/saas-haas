@@ -133,7 +133,8 @@ export function TransactionForm({
   transaction, 
   onSubmit, 
   isEditing = false,
-  forceRecurring = false
+  forceRecurring = false,
+  
 }: TransactionFormProps) {
   // Estados locais do componente
   const [tags, setTags] = useState<string[]>(transaction?.tags || []);

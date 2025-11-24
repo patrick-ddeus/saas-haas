@@ -16,7 +16,7 @@ class ApiService {
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     // Always get fresh token from localStorage
     this.token = localStorage.getItem('access_token');
 
@@ -165,9 +165,11 @@ class ApiService {
   }
 
   // Clients
-  async getClients(params: any = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/clients?${query}`);
+  async getClients(params?: any) {
+    const query = new URLSearchParams(params || {}).toString();
+    return this.request(`/clients?${query}`, {
+      method: 'GET',
+    });
   }
 
   async getClient(id: string) {
@@ -226,7 +228,7 @@ class ApiService {
 
   // Projects
   async getProjects(params: any = {}) {
-    const query = new URLSearchParams(params).toString();
+    const query = new URLSearchParams(params || {}).toString();
     return this.request(`/projects?${query}`);
   }
 
@@ -306,6 +308,24 @@ class ApiService {
     return this.request(`/transactions?${query}`);
   }
 
+  async getTransactionsStats(params: any = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/transactions/stats/overview${query ? `?${query}` : ''}`);
+  }
+
+  async getTransactionsByCategory(params: any = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/transactions/reports/by-category${query ? `?${query}` : ''}`);
+  }
+
+  async listRecurringTransactions() {
+    return this.request(`/transactions/recurring/list`);
+  }
+
+  async runRecurringTransactions() {
+    return this.request(`/transactions/recurring/run`, { method: 'POST' });
+  }
+
   async getTransaction(id: string) {
     return this.request(`/transactions/${id}`);
   }
@@ -328,6 +348,39 @@ class ApiService {
     return this.request(`/transactions/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Publications
+  async getPublications(params: any = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/publications?${query}`);
+  }
+
+  async getPublication(id: string) {
+    return this.request(`/publications/${id}`);
+  }
+
+  async updatePublication(id: string, data: any) {
+    return this.request(`/publications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePublication(id: string) {
+    return this.request(`/publications/${id}`, { method: 'DELETE' });
+  }
+
+  async importCodiloPublications(data: { oabNumber: string; uf: string; dateFrom?: string; dateTo?: string }) {
+    return this.request(`/publications/import/codilo`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async searchCodiloProcesses(params: { oabNumber: string; uf: string }) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/publications/external/codilo/search?${query}`);
   }
 
   // Invoices (Billing)
@@ -431,6 +484,47 @@ class ApiService {
   async delete(endpoint: string) {
     return this.request(endpoint, {
       method: 'DELETE',
+    });
+  }
+
+  // Estimates (Billing)
+  async getEstimates(params: any = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/estimates?${query}`);
+  }
+  async getEstimate(id: string) {
+    return this.request(`/estimates/${id}`);
+  }
+  async createEstimate(data: any) {
+    return this.request('/estimates', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async updateEstimate(id: string, data: any) {
+    return this.request(`/estimates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  async deleteEstimate(id: string) {
+    return this.request(`/estimates/${id}`, { method: 'DELETE' });
+  }
+  async getEstimateStats() {
+    return this.request('/estimates/stats/overview');
+  }
+  // Colaboradores (usuários do tenant atual)
+  async getCollaborators(params?: { status?: 'active' | 'inactive' | 'all'; accountType?: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL'; search?: string; limit?: number; page?: number }) {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null) acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+
+    return this.request(`/users/collaborators${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  }
+  // Emails (Resend via backend)
+  async sendEmail(data: any) {
+    return this.request('/emails/send', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 }

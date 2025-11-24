@@ -14,5 +14,7 @@ router.get('/stats', publicationsController.getPublicationsStats);
 router.get('/:id', publicationsController.getPublication);
 router.put('/:id', publicationsController.updatePublication);
 router.delete('/:id', publicationsController.deletePublication);
+router.post('/import/codilo', publicationsController.importFromCodilo);
+router.get('/external/codilo/search', publicationsController.searchCodilo);
 
 export default router;

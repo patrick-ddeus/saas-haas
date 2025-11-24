@@ -161,56 +161,56 @@ export function EmailSendModal({
     return baseTemplate;
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // remove prefix "data:<mime>;base64,"
+        const base64 = result.split(',')[1] || result;
+        resolve(base64);
+      };
+      reader.onerror = (e) => reject(e);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSend = async () => {
     setSending(true);
     try {
-      // Simulate Resend API call
       const firstDoc = documents && documents[0] ? documents[0] : null;
+
+      const attachments =
+        emailData.attachedFiles && emailData.attachedFiles.length > 0
+          ? await Promise.all(
+              emailData.attachedFiles.map(async (file: File) => ({
+                filename: file.name,
+                content: await fileToBase64(file),
+                contentType: file.type,
+              })),
+            )
+          : undefined;
 
       const emailPayload = {
         from: `${emailData.fromName} <${emailData.fromEmail}>`,
-        to: emailData.to.split(",").map((email) => email.trim()),
-        cc: emailData.cc
-          ? emailData.cc.split(",").map((email) => email.trim())
-          : undefined,
-        bcc: emailData.bcc
-          ? emailData.bcc.split(",").map((email) => email.trim())
-          : undefined,
+        to: emailData.to.split(',').map((email) => email.trim()),
+        cc: emailData.cc ? emailData.cc.split(',').map((email) => email.trim()) : undefined,
+        bcc: emailData.bcc ? emailData.bcc.split(',').map((email) => email.trim()) : undefined,
         subject: emailData.subject,
-        html: firstDoc
-          ? getTemplateContent(firstDoc)
-          : "<p>No document content available</p>",
+        html: firstDoc ? getTemplateContent(firstDoc) : '<p>No document content available</p>',
         reply_to: emailData.replyTo,
-        // Anexar arquivos reais enviados pelo usuário
-        attachments:
-          emailData.attachedFiles && emailData.attachedFiles.length > 0
-            ? await Promise.all(
-                emailData.attachedFiles.map(async (file) => ({
-                  filename: file.name,
-                  content: await file.arrayBuffer(),
-                  contentType: file.type,
-                })),
-              )
-            : undefined,
-        // COMENTÁRIO PARA BACKEND: Implementar integração com Resend API
-        // - Configurar API key do Resend no backend
-        // - Converter documentos para formato adequado (PDF, Word, etc.)
-        // - Implementar templates de email personalizáveis
-        // - Adicionar controle de entrega e leitura
+        attachments,
       };
 
-      // Call the actual send function
       await onSendEmail(emailPayload);
 
       alert(
-        `✅ Email${documents.length > 1 ? "s" : ""} enviado${documents.length > 1 ? "s" : ""} com sucesso!\n\n📧 Destinatário${documents.length > 1 ? "s" : ""}: ${emailData.to}\n🎯 ${documents.length} documento${documents.length > 1 ? "s" : ""} enviado${documents.length > 1 ? "s" : ""}`,
+        `✅ Email${documents.length > 1 ? 's' : ''} enviado${documents.length > 1 ? 's' : ''} com sucesso!\n\n📧 Destinatário${documents.length > 1 ? 's' : ''}: ${emailData.to}\n🎯 ${documents.length} documento${documents.length > 1 ? 's' : ''} enviado${documents.length > 1 ? 's' : ''}`,
       );
 
       safeOnOpenChange(false);
     } catch (error) {
-      alert(
-        "❌ Erro ao enviar email. Verifique as configurações e tente novamente.",
-      );
+      alert('❌ Erro ao enviar email. Verifique as configurações e tente novamente.');
     } finally {
       setSending(false);
     }

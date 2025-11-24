@@ -37,6 +37,7 @@ interface TaskBoardProps {
   onMoveTask: (taskId: string, newStatus: TaskStatus) => void;
   onViewTask: (task: Task) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  statusNames: Record<TaskStatus, string>;
 }
 
 // STAGES IGUAIS AO CRM: Mesmo pipeline do CRM Pipeline de Vendas
@@ -61,7 +62,8 @@ export function TaskBoard({
   onDeleteTask,
   onMoveTask,
   onViewTask,
-  onToggleSubtask
+  onToggleSubtask,
+  statusNames
 }: TaskBoardProps) {
   // IMPLEMENTAÇÃO: Paginação Kanban - 5 tasks por página
   const [stagePagination, setStagePagination] = useState<Record<string, number>>({});
@@ -188,7 +190,7 @@ export function TaskBoard({
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">
-                  {statusConfig[board.id]?.name || board.name}
+                  {statusNames?.[board.id] || board.name}
                 </CardTitle>
                 <Button
                   size="sm"

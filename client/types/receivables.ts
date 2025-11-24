@@ -56,6 +56,9 @@ export interface Invoice {
   id: string;
   clienteId: string;
   numeroFatura: string;
+  clienteNome?: string;
+  clienteEmail?: string;
+  clienteTelefone?: string;
   
   // Dados financeiros
   valor: number;

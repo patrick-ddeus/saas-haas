@@ -20,6 +20,8 @@ import {
   softDeleteInTenantSchema
 } from '../utils/tenantHelpers';
 
+import { createId } from '@paralleldrive/cuid2'; // ou 'cuid'
+// ex: 'ck…'
 // ============================================================================
 // INTERFACES
 // ============================================================================
@@ -41,7 +43,7 @@ export interface Project {
   due_date: string;
   completed_at?: string;
   tags: string[];
-  assigned_to: string[]; // array de user ids / objetos
+  assigned_to: string[];
   notes?: string;
   contacts: any[];
   created_by: string;
@@ -70,7 +72,7 @@ export interface CreateProjectData {
   contacts?: any[];      // passar array/obj (não string)
 }
 
-export interface UpdateProjectData extends Partial<CreateProjectData> {}
+export interface UpdateProjectData extends Partial<CreateProjectData> { }
 
 export interface ProjectFilters {
   page?: number;
@@ -100,20 +102,49 @@ class ProjectsService {
       )
     `;
 
-    const tableExists = await queryTenantSchema<{ exists: boolean }>(tenantDB, checkTableQuery);
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR NOT NULL,
+        description VARCHAR,
+        client_id VARCHAR,
+        client_name VARCHAR NOT NULL,
+        organization VARCHAR,
+        address VARCHAR,
+        budget DECIMAL(15, 2),
+        currency VARCHAR DEFAULT 'BRL',
+        status VARCHAR DEFAULT 'contacted',
+        priority VARCHAR DEFAULT 'medium',
+        progress INT DEFAULT 0,
+        start_date DATE,
+        end_date DATE,
+        due_date DATE,
+        completed_at TIMESTAMP,
+        tags JSONB DEFAULT '[]',
+        assigned_to JSONB DEFAULT '[]',
+        notes TEXT,
+        is_recurring BOOLEAN DEFAULT FALSE,
+        recurring_frequency VARCHAR,
+        created_by VARCHAR NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        is_active BOOLEAN DEFAULT TRUE
+      )
+    `;
 
-    if (!tableExists || tableExists.length === 0 || !tableExists[0].exists) {
-      console.log('Table projects does not exist in tenant schema');
+    const tableExists = await queryTenantSchema<{ exists: boolean }>(tenantDB, checkTableQuery);
+    if (!tableExists || tableExists.length === 0 || !tableExists[ 0 ].exists) {
+      await tenantDB.executeInTenantSchema(createTableQuery);
       return;
     }
 
     // Adicionar colunas opcionais se não existirem (IF NOT EXISTS)
     const alterStatements = [
       `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS organization VARCHAR(255)`,
-      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS address VARCHAR(255)`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS address TEXT`,
       `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'BRL'`,
-      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE`,
-      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS due_date DATE`,
+      `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`,
       `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS assigned_to JSONB DEFAULT '[]'::jsonb`,
       `ALTER TABLE \${schema}.projects ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb`
     ];
@@ -176,6 +207,70 @@ class ProjectsService {
     } catch (e) {
       console.log('Column due_date already NOT NULL or error:', e);
     }
+
+    // Garantir defaults críticos (id, created_at, updated_at)
+    try {
+      const idDefault = await queryTenantSchema<{ column_default: string | null }>(
+        tenantDB,
+        `
+        SELECT column_default
+        FROM information_schema.columns
+        WHERE table_schema = '\${schema}'
+          AND table_name = '${this.tableName}'
+          AND column_name = 'id'
+        `
+      );
+      if (!idDefault?.[ 0 ]?.column_default) {
+        await tenantDB.executeInTenantSchema(`
+          ALTER TABLE \${schema}.${this.tableName}
+          ALTER COLUMN id SET DEFAULT gen_random_uuid()
+        `);
+      }
+    } catch (e) {
+      console.log('Error ensuring id default:', e);
+    }
+
+    try {
+      const createdAtDefault = await queryTenantSchema<{ column_default: string | null }>(
+        tenantDB,
+        `
+        SELECT column_default
+        FROM information_schema.columns
+        WHERE table_schema = '\${schema}'
+          AND table_name = '${this.tableName}'
+          AND column_name = 'created_at'
+        `
+      );
+      if (!createdAtDefault?.[ 0 ]?.column_default) {
+        await tenantDB.executeInTenantSchema(`
+          ALTER TABLE \${schema}.${this.tableName}
+          ALTER COLUMN created_at SET DEFAULT NOW()
+        `);
+      }
+    } catch (e) {
+      console.log('Error ensuring created_at default:', e);
+    }
+
+    try {
+      const updatedAtDefault = await queryTenantSchema<{ column_default: string | null }>(
+        tenantDB,
+        `
+        SELECT column_default
+        FROM information_schema.columns
+        WHERE table_schema = '\${schema}'
+          AND table_name = '${this.tableName}'
+          AND column_name = 'updated_at'
+        `
+      );
+      if (!updatedAtDefault?.[ 0 ]?.column_default) {
+        await tenantDB.executeInTenantSchema(`
+          ALTER TABLE \${schema}.${this.tableName}
+          ALTER COLUMN updated_at SET DEFAULT NOW()
+        `);
+      }
+    } catch (e) {
+      console.log('Error ensuring updated_at default:', e);
+    }
   }
 
   /**
@@ -198,7 +293,7 @@ class ProjectsService {
     const limit = filters.limit || 50;
     const offset = (page - 1) * limit;
 
-    let whereConditions = ['is_active = TRUE'];
+    let whereConditions = [ 'is_active = TRUE' ];
     let queryParams: any[] = [];
     let paramIndex = 1;
 
@@ -273,12 +368,12 @@ class ProjectsService {
       WHERE ${whereClause}
     `;
 
-    const [projects, countResult] = await Promise.all([
-      queryTenantSchema<Project>(tenantDB, projectsQuery, [...queryParams, limit, offset]),
+    const [ projects, countResult ] = await Promise.all([
+      queryTenantSchema<Project>(tenantDB, projectsQuery, [ ...queryParams, limit, offset ]),
       queryTenantSchema<{ total: string }>(tenantDB, countQuery, queryParams)
     ]);
 
-    const total = parseInt(countResult[0]?.total || '0');
+    const total = parseInt(countResult[ 0 ]?.total || '0');
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -332,8 +427,8 @@ class ProjectsService {
       WHERE id::text = $1 AND is_active = TRUE
     `;
 
-    const result = await queryTenantSchema<Project>(tenantDB, query, [projectId]);
-    return result[0] || null;
+    const result = await queryTenantSchema<Project>(tenantDB, query, [ projectId ]);
+    return result[ 0 ] || null;
   }
 
   /**
@@ -351,10 +446,10 @@ class ProjectsService {
 
     /**
      * ORDEM EXATA das colunas conforme migration.sql:
-     * id (gerado automaticamente), title, description, client_id, client_name,
+     * id (default no banco), title, description, client_id, client_name,
      * organization, address, budget, currency, status, priority, progress,
      * start_date, due_date, completed_at, tags, assigned_to, notes, contacts,
-     * created_by, is_active, created_at, updated_at
+     * created_by, is_active (default), created_at (default), updated_at (default)
      */
     const data: Record<string, any> = {
       title: projectData.title,
@@ -375,9 +470,67 @@ class ProjectsService {
       assigned_to: projectData.assignedTo || [],
       notes: projectData.notes || null,
       contacts: projectData.contacts || [],
-      created_by: createdBy,
-      // is_active, created_at, updated_at são preenchidos automaticamente pelo banco
+      created_by: createdBy
     };
+
+    // Detectar colunas NOT NULL sem default no schema do tenant e preencher fallback
+    const columnsInfo = await queryTenantSchema<{
+      column_name: string;
+      data_type: string;
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      tenantDB,
+      `
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = '\${schema}'
+        AND table_name = '${this.tableName}'
+      `
+    );
+
+    const requiredNoDefault = (columnsInfo || []).filter(
+      (c) =>
+        c.is_nullable === 'NO' &&
+        (!c.column_default || c.column_default.trim() === '') &&
+        c.column_name !== 'id' // id deve ser gerado pelo banco
+    );
+    console.log("🚀 ~ ProjectsService ~ createProject ~ requiredNoDefault:", requiredNoDefault)
+
+    for (const col of requiredNoDefault) {
+      const name = col.column_name;
+
+      // Se já está presente, não mexe
+      if (Object.prototype.hasOwnProperty.call(data, name)) continue;
+
+      // Mapeamentos especiais para colunas legadas
+      if (name === 'name') {
+        data.name = projectData.title;
+        continue;
+      }
+      if (name === 'end_date') {
+        data.end_date = projectData.dueDate;
+        continue;
+      }
+
+      // Fallback por tipo
+      const type = col.data_type.toLowerCase();
+      if (type.includes('json')) {
+        data[ name ] = [];
+      } else if (type.includes('int') || type.includes('numeric') || type.includes('decimal')) {
+        data[ name ] = 0;
+      } else if (type.includes('bool')) {
+        data[ name ] = true;
+      } else if (type.includes('timestamp')) {
+        // updated_at/created_at sem default em schemas antigos
+        data[ name ] = new Date().toISOString();
+      } else if (type.includes('date')) {
+        data[ name ] = projectData.dueDate;
+      } else {
+        // varchar/text e demais -> string vazia
+        data[ name ] = '';
+      }
+    }
 
     return await insertInTenantSchema<Project>(tenantDB, this.tableName, data);
   }
@@ -390,7 +543,10 @@ class ProjectsService {
 
     const data: Record<string, any> = {};
 
-    if (updateData.title !== undefined) data.title = updateData.title;
+    if (updateData.title !== undefined) { 
+      data.title = updateData.title;
+      // data.name = updateData.title;
+    }
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
     if (updateData.clientName !== undefined) data.client_name = updateData.clientName;
@@ -465,7 +621,7 @@ class ProjectsService {
     `;
 
     const result = await queryTenantSchema<any>(tenantDB, query);
-    const stats = result[0];
+    const stats = result[ 0 ];
 
     return {
       total: parseInt(stats.total || '0'),

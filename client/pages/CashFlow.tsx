@@ -79,6 +79,7 @@ import { TransactionViewDialog } from '@/components/CashFlow/TransactionViewDial
 import { Transaction, TransactionStatus, PaymentMethod } from '@/types/cashflow';
 import { Badge } from '@/components/ui/badge';
 import { useTransactions } from '@/hooks/useTransactions';
+import { apiService } from '@/services/apiService';
 
 // Mock transactions removed - using real data from useTransactions hook
 
@@ -104,6 +105,8 @@ export function CashFlow() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
   const [forceRecurring, setForceRecurring] = useState(false);
 
   // Log para debug - ajuda a identificar problemas
@@ -146,9 +149,12 @@ export function CashFlow() {
         (activeTab === 'expense' && transaction.type === 'expense') ||
         (activeTab === 'recurring' && transaction.isRecurring);
 
-      return matchesSearch && matchesStatus && matchesType && matchesTab;
+      const withinFrom = !dateFrom || new Date(transaction.date) >= new Date(dateFrom);
+      const withinTo = !dateTo || new Date(transaction.date) <= new Date(dateTo);
+
+      return matchesSearch && matchesStatus && matchesType && matchesTab && withinFrom && withinTo;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [transactions, searchTerm, statusFilter, typeFilter, activeTab]);
+  }, [transactions, searchTerm, statusFilter, typeFilter, activeTab, dateFrom, dateTo]);
 
   /**
    * CÁLCULO DE ESTATÍSTICAS FINANCEIRAS
@@ -263,6 +269,11 @@ export function CashFlow() {
     setShowTransactionForm(true);
   };
 
+  const handleRunRecurring = async () => {
+    await apiService.runRecurringTransactions();
+    await refreshTransactions();
+  };
+
   const handleCopyLastTransaction = () => {
     console.log('Copiando última transação');
     
@@ -304,7 +315,6 @@ export function CashFlow() {
         
         await updateTransactionApi(editingTransaction.id, data);
 
-        alert('✅ Transação atualizada com sucesso!');
       } else {
         // Criando nova transação
         console.log('Criando nova transação');
@@ -312,11 +322,11 @@ export function CashFlow() {
         await createTransactionApi(data);
 
         // Feedback específico para tipo de transação
-        if (data.isRecurring) {
-          alert(`✅ Transação recorrente criada com sucesso!\n\n🔄 Frequência: ${data.recurringFrequency}\n💰 Valor: R$ ${data.amount.toFixed(2)}\n📅 Próxima: ${getNextRecurringDate(data.recurringFrequency)}`);
-        } else {
-          alert(`✅ Transação criada com sucesso!\n\n💰 Valor: R$ ${data.amount.toFixed(2)}\n📊 Tipo: ${data.type === 'income' ? 'Receita' : 'Despesa'}`);
-        }
+        // if (data.isRecurring) {
+        //   alert(`✅ Transação recorrente criada com sucesso!\n\n🔄 Frequência: ${data.recurringFrequency}\n💰 Valor: R$ ${data.amount.toFixed(2)}\n📅 Próxima: ${getNextRecurringDate(data.recurringFrequency)}`);
+        // } else {
+        //   alert(`✅ Transação criada com sucesso!\n\n💰 Valor: R$ ${data.amount.toFixed(2)}\n📊 Tipo: ${data.type === 'income' ? 'Receita' : 'Despesa'}`);
+        // }
       }
 
       // Limpar estados
@@ -345,7 +355,6 @@ export function CashFlow() {
         await deleteTransactionApi(transactionId);
         setSelectedTransactions(selectedTransactions.filter(id => id !== transactionId));
         
-        alert('✅ Transação excluída com sucesso!');
       } catch (error) {
         console.error('Erro ao deletar transação:', error);
         alert('❌ Erro ao excluir transação. Tente novamente.');
@@ -452,7 +461,7 @@ export function CashFlow() {
       link.click();
       document.body.removeChild(link);
 
-      alert(`✅ Relatório exportado com sucesso!\n\n📊 ${filteredTransactions.length} transações exportadas\n📁 Arquivo: fluxo_caixa_${new Date().toISOString().split('T')[0]}.csv`);
+      // alert(`✅ Relatório exportado com sucesso!\n\n📊 ${filteredTransactions.length} transações exportadas\n📁 Arquivo: fluxo_caixa_${new Date().toISOString().split('T')[0]}.csv`);
 
     } catch (error) {
       console.error('Erro ao exportar CSV:', error);
@@ -626,7 +635,7 @@ export function CashFlow() {
         </div>
 
         {/* CARDS DE AÇÕES RÁPIDAS */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           {/* Card: Nova Transação */}
           <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={handleCreateTransaction}>
             <CardContent className="p-6">
@@ -667,6 +676,21 @@ export function CashFlow() {
                 <div>
                   <h3 className="font-semibold">Exportar CSV</h3>
                   <p className="text-sm text-muted-foreground">Baixar relatório completo</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card: Executar Recorrentes */}
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={handleRunRecurring}>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <Repeat className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Executar Recorrentes</h3>
+                  <p className="text-sm text-muted-foreground">Gerar lançamentos previstos</p>
                 </div>
               </div>
             </CardContent>
@@ -713,6 +737,24 @@ export function CashFlow() {
           <Button variant="outline" onClick={handleExportCSV}>
             <Download className="h-4 w-4 mr-2" />
             Exportar
+          </Button>
+        </div>
+
+        {/* Filtro de período */}
+        <div className="flex items-center space-x-2">
+          <div>
+            <label className="text-xs text-muted-foreground">De</label>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Até</label>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={() => refreshTransactions()}>
+            <Filter className="h-4 w-4 mr-2" /> Aplicar
+          </Button>
+          <Button variant="outline" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+            Limpar
           </Button>
         </div>
 

@@ -18,5 +18,9 @@ router.get('/:id', transactionsController.getTransaction);
 router.post('/', transactionsController.createTransaction);
 router.put('/:id', transactionsController.updateTransaction);
 router.delete('/:id', transactionsController.deleteTransaction);
+router.get('/stats/overview', transactionsController.getStats);
+router.get('/reports/by-category', transactionsController.getByCategory);
+router.get('/recurring/list', transactionsController.listRecurring);
+router.post('/recurring/run', transactionsController.runRecurring);
 
 export default router;

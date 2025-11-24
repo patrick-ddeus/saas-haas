@@ -55,7 +55,28 @@ export async function insertInTenantSchema<T = any>(
   }
 
   const schemaName = await tenantDB.getSchemaName();
+  console.log(Object.entries(data))
 
+  try {
+    const cols = await queryTenantSchema<{ column_name: string; is_nullable: string; column_default: string | null }>(
+      tenantDB,
+      `
+      SELECT column_name, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = '${schemaName}' AND table_name = '${tableName}'
+      `
+    );
+    const required = (cols || []).filter(c => c.is_nullable === 'NO' && (!c.column_default || c.column_default.trim() === ''));
+    const requiredNames = new Set(required.map(c => c.column_name));
+    if (tableName === 'projects') {
+      if (requiredNames.has('name') && data.name === undefined) {
+        data.name = data.title ?? '';
+      }
+      if (requiredNames.has('client_name') && data.client_name === undefined) {
+        data.client_name = data.client_name ?? '';
+      }
+    }
+  } catch (_) {}
   const columns = Object.keys(data);
   if (columns.length === 0) {
     throw new Error('No data provided to insertInTenantSchema');
@@ -204,7 +225,7 @@ export async function updateInTenantSchema<T = any>(
   const query = `
     UPDATE ${schema}.${tableName}
     SET ${setClauses.join(', ')}, updated_at = NOW()
-    WHERE id = $${idParamIndex}::uuid AND is_active = TRUE
+    WHERE id::text = $${idParamIndex} AND is_active = TRUE
     RETURNING *
   `;
 
@@ -234,7 +255,7 @@ export async function softDeleteInTenantSchema<T = any>(
   const query = `
     UPDATE ${schema}.${tableName}
     SET is_active = FALSE, updated_at = NOW()
-    WHERE id = $1::uuid AND is_active = TRUE
+    WHERE id::text = $1 AND is_active = TRUE
     RETURNING *
   `;
 

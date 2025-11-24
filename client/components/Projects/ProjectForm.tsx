@@ -53,7 +53,7 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 interface ProjectFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  project?: Project;
+  project?: Partial<Project>;
   onSubmit: (data: ProjectFormData & { tags: string[]; contacts: ProjectContact[] }) => void;
   isEditing?: boolean;
   existingTags?: string[]; // Tags existentes de outros projetos
@@ -93,19 +93,19 @@ export function ProjectForm({ open, onOpenChange, project, onSubmit, isEditing =
     defaultValues: {
       title: project?.title || '',
       description: project?.description || '',
-      clientName: project?.clientName || '',
+      clientName: project?.client_name || '',
       organization: project?.organization || '',
       address: project?.address || '',
       budget: project?.budget || 0,
       currency: project?.currency || 'BRL',
       status: project?.status || 'contacted',
-      startDate: project?.startDate ? project.startDate.split('T')[0] : '',
-      dueDate: project?.dueDate ? project.dueDate.split('T')[0] : '',
+      startDate: project?.start_date ? project.start_date.split('T')[0] : '',
+      dueDate: project?.due_date ? project.due_date.split('T')[0] : '',
       priority: project?.priority || 'medium',
       progress: project?.progress || 0,
       notes: project?.notes || '',
       // IMPLEMENTAÇÃO FUTURA: Pegar usuário atual logado do contexto/token
-      createdBy: project?.createdBy || 'Dr. Advogado', // Será currentUser.name
+      createdBy: project?.created_by || 'Dr. Advogado', // Será currentUser.name
     },
   });
 
@@ -115,18 +115,18 @@ export function ProjectForm({ open, onOpenChange, project, onSubmit, isEditing =
       form.reset({
         title: project.title || '',
         description: project.description || '',
-        clientName: project.clientName || '',
+        clientName: project.client_name || '',
         organization: project.organization || '',
         address: project.address || '',
-        budget: project.budget || 0,
+        budget: Number(project.budget) || 0,
         currency: project.currency || 'BRL',
         status: project.status || 'contacted',
-        startDate: project.startDate ? project.startDate.split('T')[0] : '',
-        dueDate: project.dueDate ? project.dueDate.split('T')[0] : '',
+        startDate: project.start_date ? project.start_date.split('T')[0] : '',
+        dueDate: project.due_date ? project.due_date.split('T')[0] : '',
         priority: project.priority || 'medium',
         progress: project.progress || 0,
         notes: project.notes || '',
-        createdBy: project.createdBy || 'Dr. Advogado', // Será currentUser.name
+        createdBy: project.created_by || 'Dr. Advogado', // Será currentUser.name
       });
       setTags(project.tags || []);
       setContacts(project.contacts || []);

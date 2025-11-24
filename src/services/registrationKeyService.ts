@@ -9,6 +9,7 @@ export interface CreateKeyRequest {
   expiresAt?: Date;
   singleUse?: boolean;
   metadata?: any;
+  key?: string;
 }
 
 export class RegistrationKeyService {
@@ -17,7 +18,7 @@ export class RegistrationKeyService {
       console.log('Generating registration key with request:', request);
       
       // Generate random key
-      const key = crypto.randomBytes(32).toString('hex');
+      const key = request.key || crypto.randomBytes(32).toString('hex');
       const keyHash = await bcrypt.hash(key, 12);
       
       console.log('Generated key hash, creating database record...');

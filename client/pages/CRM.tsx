@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   createSafeOnOpenChange,
   createSafeDialogHandler,
@@ -63,23 +63,25 @@ import {
 import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { apiService } from "@/services/apiService";
+import { useAuth } from "@/hooks/useAuth";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Helper function to map Deal (backend) to Deal (frontend)
-const mapProjectToDeal = (deal: any): Deal => ({
+const mapApiDealToDeal = (deal: any): Deal => ({
   id: deal.id,
   title: deal.title,
-  contactName: deal.contact_name || deal.contactName,
-  organization: deal.organization,
+  contactName: deal.contact_name || deal.contactName || "",
+  organization: deal.organization || "",
   email: deal.email || "",
   mobile: deal.phone || deal.mobile || "",
   address: deal.address || "",
-  budget: deal.budget || 0,
+  budget: Number(deal.budget || 0),
   currency: deal.currency || "BRL",
-  stage: deal.stage as DealStage,
-  tags: deal.tags || [],
-  description: deal.description,
-  createdAt: deal.created_at || deal.createdAt,
-  updatedAt: deal.updated_at || deal.updatedAt,
+  stage: (deal.stage as DealStage) || "contacted",
+  tags: Array.isArray(deal.tags) ? deal.tags : [],
+  description: deal.description || "",
+  createdAt: deal.created_at || deal.createdAt || new Date().toISOString(),
+  updatedAt: deal.updated_at || deal.updatedAt || new Date().toISOString(),
 });
 
 // Helper function to map Deal (frontend) to Deal data (backend)
@@ -132,11 +134,11 @@ function PipelineListView({
     return colors[color] || colors.gray;
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
+  const formatCurrency = (value: number, currency: string) => {
+    return new Intl.NumberFormat(
+      currency === "USD" ? "en-US" : currency === "EUR" ? "de-DE" : "pt-BR",
+      { style: "currency", currency: currency || "BRL" }
+    ).format(value);
   };
 
   return (
@@ -167,7 +169,7 @@ function PipelineListView({
                     <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                       <span>{deal.contactName}</span>
                       <span>•</span>
-                      <span>{formatCurrency(deal.budget)}</span>
+                      <span>{formatCurrency(deal.budget, deal.currency)}</span>
                       <span>•</span>
                       <span>
                         Criado:{" "}
@@ -239,41 +241,64 @@ export function CRM() {
     deleteClient,
     isLoading: clientsLoading,
   } = useClients();
-  const {
-    projects,
-    createProject,
-    updateProject,
-    deleteProject,
-    isLoading: projectsLoading,
-  } = useProjects();
+  const { user } = useAuth();
+  // Removido: useProjects (não utilizado)
+  // const { projects, createProject, updateProject, deleteProject, isLoading: projectsLoading } = useProjects();
 
-  const [deals, setDeals] = useState<Deal[]>([]); // Estado local para deals
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [isLoadingDeals, setIsLoadingDeals] = useState<boolean>(false);
+  const [errorDeals, setErrorDeals] = useState<string | null>(null);
+  const [dealStageFilter, setDealStageFilter] = useState<DealStage | "all">("all");
+  const [dealTagsFilter, setDealTagsFilter] = useState<string[]>([]);
+  const availableDealTags = useMemo(
+    () => Array.from(new Set(deals.flatMap((d) => d.tags || []))).sort(),
+    [deals]
+  );
 
-  // Helper function to load deals from the API
-  const loadDeals = async () => {
+  // Helper function to load deals from the API with optional filters
+  const loadDeals = async (filters?: { stage?: string; tags?: string[] }) => {
     try {
-      const response = await apiService.getDeals();
-      
-      // Backend retorna { deals: [...], pagination: {...} }
-      if (response.deals) {
-        setDeals(response.deals.map(mapProjectToDeal));
-      } else if (Array.isArray(response)) {
-        setDeals(response.map(mapProjectToDeal));
+      setIsLoadingDeals(true);
+      setErrorDeals(null);
+
+      const params: any = {};
+      if (filters?.stage && filters.stage !== "all") {
+        params.stage = filters.stage;
       }
-    } catch (error) {
+      if (filters?.tags && filters.tags.length > 0) {
+        params.tags = filters.tags.join(",");
+      }
+
+      const response = await apiService.getDeals(params);
+      // Backend retorna { deals: [...], pagination: {...} } ou array simples
+      if (response?.deals) {
+        setDeals(response.deals.map(mapApiDealToDeal));
+      } else if (Array.isArray(response)) {
+        setDeals(response.map(mapApiDealToDeal));
+      } else {
+        setDeals([]);
+      }
+    } catch (error: any) {
       console.error("Erro ao carregar negócios:", error);
-      toast({
-        title: "Erro ao carregar negócios",
-        description: "Não foi possível carregar os negócios do pipeline.",
-        variant: "destructive",
-      });
+      setErrorDeals(error?.message || "Não foi possível carregar os negócios do pipeline.");
+      setDeals([]);
+    } finally {
+      setIsLoadingDeals(false);
     }
   };
 
-  // Efeito para carregar os deals quando o componente monta
-  useMemo(() => {
+  // Carregar deals corretamente com useEffect (efeitos colaterais)
+  useEffect(() => {
     loadDeals();
   }, []);
+
+  // Recarregar deals quando filtros de estágio/tags mudarem
+  useEffect(() => {
+    loadDeals({
+      stage: dealStageFilter,
+      tags: dealTagsFilter,
+    });
+  }, [dealStageFilter, dealTagsFilter]);
 
   // Map projects to deals for frontend display
   // const deals = useMemo(() => {
@@ -351,7 +376,7 @@ export function CRM() {
     });
   }, [clients, searchTerm, statusFilter, advancedFilters]);
 
-  // Filter deals based on search term
+  // Filter deals based on search term (servidor filtra por estágio/tags; aqui só busca textual)
   const filteredDeals = useMemo(() => {
     return deals.filter((deal) => {
       const matchesSearch =
@@ -363,18 +388,58 @@ export function CRM() {
   }, [deals, dealSearchTerm]);
 
   // Initial pipeline stages configuration
+  // Persistência de nomes dos stages por tenant
+  const STAGE_PREF_KEY = useMemo(
+    () => (user?.tenantId ? `pipelineStages_${user.tenantId}` : `pipelineStages_default`),
+    [user?.tenantId]
+  );
+
+  const loadStagePreferences = () => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(STAGE_PREF_KEY) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed as { id: DealStage; name: string; color: string }[];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const saveStagePreferences = (stages: { id: DealStage; name: string; color: string }[]) => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STAGE_PREF_KEY, JSON.stringify(stages));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   // PIPELINE SIMPLIFICADO: Apenas 4 estágios conforme solicitado
-  const [pipelineStagesConfig, setPipelineStagesConfig] = useState([
+  const [pipelineStagesConfig, setPipelineStagesConfig] = useState<
+    { id: DealStage; name: string; color: string }[]
+  >([
     { id: "contacted", name: "Em Contato", color: "blue" },
     { id: "proposal", name: "Com Proposta", color: "yellow" },
     { id: "won", name: "Cliente Bem Sucedido", color: "green" },
     { id: "lost", name: "Cliente Perdido", color: "red" },
   ]);
 
+  // Carregar preferências salvas de stages quando o usuário/tenant estiver disponível
+  useEffect(() => {
+    const saved = loadStagePreferences();
+    if (saved) {
+      setPipelineStagesConfig(saved);
+    }
+  }, [STAGE_PREF_KEY]);
+
   // REMOVIDOS: opportunity, advanced, general conforme solicitação
   // IMPLEMENTAÇÃO FUTURA: Editar nomes dos stages também deve atualizar nos deals
 
-  // Pipeline stages with deals
+  // Pipeline stages com deals filtrados
   const pipelineStages = pipelineStagesConfig.map((stage) => ({
     ...stage,
     deals: filteredDeals.filter((deal) => deal.stage === stage.id),
@@ -476,15 +541,14 @@ export function CRM() {
     try {
       console.log("Moving deal:", dealId, "to stage:", newStage);
 
-      // Otimistic update - atualizar UI imediatamente
       setDeals((prevDeals) =>
         prevDeals.map((deal) =>
           deal.id === dealId ? { ...deal, stage: newStage } : deal,
         ),
       );
 
-      // Fazer a requisição para o backend
-      await apiService.updateDeal(dealId, { stage: newStage });
+      // Rota dedicada para mover estágio (PATCH)
+      await apiService.patch(`/deals/${dealId}/stage`, { stage: newStage });
 
       toast({
         title: "Negócio movido com sucesso",
@@ -492,10 +556,7 @@ export function CRM() {
       });
     } catch (error) {
       console.error("Erro ao mover negócio:", error);
-
-      // Reverter mudança otimista em caso de erro
-      await loadDeals();
-
+      await loadDeals({ stage: dealStageFilter, tags: dealTagsFilter });
       toast({
         title: "Erro ao mover negócio",
         description:
@@ -568,7 +629,10 @@ export function CRM() {
               Gerenciamento de clientes e relacionamentos
             </p>
           </div>
-          <Button onClick={() => setShowClientForm(true)}>
+          <Button onClick={() => {
+            setEditingClient(null)
+            setShowClientForm(true)
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Cliente
           </Button>
@@ -743,9 +807,7 @@ export function CRM() {
                     {/* View Mode Toggle */}
                     <div className="flex border rounded-lg p-1">
                       <Button
-                        variant={
-                          pipelineViewMode === "kanban" ? "default" : "ghost"
-                        }
+                        variant={pipelineViewMode === "kanban" ? "default" : "ghost"}
                         size="sm"
                         onClick={() => setPipelineViewMode("kanban")}
                       >
@@ -753,9 +815,7 @@ export function CRM() {
                         Kanban
                       </Button>
                       <Button
-                        variant={
-                          pipelineViewMode === "list" ? "default" : "ghost"
-                        }
+                        variant={pipelineViewMode === "list" ? "default" : "ghost"}
                         size="sm"
                         onClick={() => setPipelineViewMode("list")}
                       >
@@ -770,7 +830,7 @@ export function CRM() {
                       size="sm"
                       onClick={() => {
                         setEditingStages(true);
-                        const initialNames = {};
+                        const initialNames: Record<string, string> = {};
                         pipelineStagesConfig.forEach((stage) => {
                           initialNames[stage.id] = stage.name;
                         });
@@ -784,21 +844,128 @@ export function CRM() {
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Search filter for deals */}
-                <div className="mb-4">
-                  <div className="relative max-w-md">
+                {/* Filtros avançados por estágio e tags */}
+                <div className="grid gap-3 grid-cols-1 md:grid-cols-3 mb-4">
+                  <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Procurar por título do negócio..."
+                      placeholder="Procurar por título/contato/organização..."
                       className="pl-10"
                       value={dealSearchTerm}
                       onChange={(e) => setDealSearchTerm(e.target.value)}
                     />
                   </div>
+
+                  <Select
+                    value={dealStageFilter}
+                    onValueChange={(v) => setDealStageFilter(v as DealStage | "all")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Estágio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os estágios</SelectItem>
+                      <SelectItem value="contacted">Em Contato</SelectItem>
+                      <SelectItem value="proposal">Com Proposta</SelectItem>
+                      <SelectItem value="won">Cliente Bem Sucedido</SelectItem>
+                      <SelectItem value="lost">Cliente Perdido</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full">
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filtrar por Tags
+                        {dealTagsFilter.length > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {dealTagsFilter.length} selecionada(s)
+                          </Badge>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                      {availableDealTags.length === 0 ? (
+                        <div className="p-2 text-xs text-muted-foreground">
+                          Nenhuma tag disponível
+                        </div>
+                      ) : (
+                        availableDealTags.map((tag) => (
+                          <DropdownMenuItem
+                            key={tag}
+                            onClick={() => {
+                              setDealTagsFilter((prev) =>
+                                prev.includes(tag)
+                                  ? prev.filter((t) => t !== tag)
+                                  : [...prev, tag]
+                              );
+                            }}
+                          >
+                            <span className="flex items-center justify-between w-full">
+                              <span>{tag}</span>
+                              {dealTagsFilter.includes(tag) && (
+                                <Badge variant="secondary">Ativa</Badge>
+                              )}
+                            </span>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                      {dealTagsFilter.length > 0 && (
+                        <DropdownMenuItem
+                          onClick={() => setDealTagsFilter([])}
+                          className="text-red-600"
+                        >
+                          Limpar seleção
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                {pipelineViewMode === "kanban" ? (
+
+                {/* Loading / Error / Empty-State */}
+                {errorDeals && (
+                  <Card className="border-red-200 bg-red-50 mb-4">
+                    <CardContent className="p-3 text-sm text-red-700">
+                      {errorDeals}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {isLoadingDeals ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {Array.from({ length: 4 }).map((_, idx) => (
+                      <Card key={idx} className="animate-pulse">
+                        <CardHeader className="space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {Array.from({ length: 3 }).map((__, i) => (
+                            <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : filteredDeals.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p className="text-sm">Nenhum negócio encontrado com os filtros atuais.</p>
+                    <div className="mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDealStageFilter("all");
+                          setDealTagsFilter([]);
+                          setDealSearchTerm("");
+                        }}
+                      >
+                        Limpar filtros
+                      </Button>
+                    </div>
+                  </div>
+                ) : pipelineViewMode === "kanban" ? (
                   <Pipeline
-                  // @ts-expect-error expected
                     stages={pipelineStages}
                     onAddDeal={handleAddDeal}
                     onEditDeal={handleEditDeal}
@@ -809,7 +976,6 @@ export function CRM() {
                 ) : (
                   <PipelineListView
                     deals={filteredDeals}
-                    // @ts-expect-error expected
                     stages={pipelineStages}
                     onEditDeal={handleEditDeal}
                     onDeleteDeal={handleDeleteDeal}
@@ -868,14 +1034,6 @@ export function CRM() {
           onEdit={handleEditFromView}
         />
 
-        {/* Deal View Dialog */}
-        <DealViewDialog
-          open={showDealView}
-          onOpenChange={setShowDealView}
-          deal={viewingDeal}
-          onEdit={handleEditFromDealView}
-        />
-
         {/* Stage Names Editing Dialog */}
         <Dialog open={editingStages} onOpenChange={safeSetEditingStages}>
           <DialogContent className="max-w-md">
@@ -918,18 +1076,19 @@ export function CRM() {
               </Button>
               <Button
                 onClick={createSafeDialogHandler(() => {
-                  console.log("Salvando stages:", tempStageNames);
-                  setPipelineStagesConfig((prev) => {
-                    const newConfig = prev.map((stage) => ({
-                      ...stage,
-                      name: tempStageNames[stage.id] || stage.name,
-                    }));
-                    console.log("Nova configuração:", newConfig);
-                    return newConfig;
-                  });
+                  const newConfig = pipelineStagesConfig.map((stage) => ({
+                    ...stage,
+                    name: tempStageNames[stage.id] || stage.name,
+                  }));
+                  setPipelineStagesConfig(newConfig);
+                  saveStagePreferences(newConfig);
                   safeSetEditingStages(false);
                   setTempStageNames({});
-                  alert("Nomes dos stages atualizados com sucesso!");
+                  toast({
+                    title: "Stages atualizados",
+                    description:
+                      "Nomes dos stages foram atualizados e salvos para este tenant.",
+                  });
                 })}
               >
                 Salvar Alterações

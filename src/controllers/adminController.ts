@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { database } from '../config/database';
+import { RegistrationKey } from '@prisma/client';
 
 // Validation schemas
 const createKeySchema = z.object({
@@ -30,6 +31,7 @@ export class AdminController {
         accountType: z.enum([ 'SIMPLES', 'COMPOSTA', 'GERENCIAL' ], {
           errorMap: () => ({ message: 'Account type must be SIMPLES, COMPOSTA, or GERENCIAL' })
         }),
+        key: z.string().optional(),
         usesAllowed: z.number().int().min(1).optional().default(1),
         expiresAt: z.string().datetime().optional(),
         singleUse: z.boolean().optional().default(true),
@@ -63,6 +65,7 @@ export class AdminController {
         tenantId: validatedData.tenantId,
         accountType: validatedData.accountType,
         usesAllowed: validatedData.usesAllowed || 1,
+        key: validatedData.key || null,
         expiresAt: validatedData.expiresAt ? new Date(validatedData.expiresAt) : undefined,
         singleUse: validatedData.singleUse ?? true,
       }, 'admin');
@@ -97,19 +100,21 @@ export class AdminController {
 
       const { registrationKeyService } = await import('../services/registrationKeyService');
       const keys = await registrationKeyService.listKeysWithDetails(tenantId);
+      console.log("🚀 ~ AdminController ~ getRegistrationKeys ~ keys:", keys)
 
       // Transform the data to match the expected format with complete information
       const formattedKeys = await Promise.all(
-        keys.map(async (key: any) => {
+        keys.map(async (key: RegistrationKey) => {
           let tenantInfo = null;
           let userInfo = null;
           let isActive = true;
 
           // Get tenant information
-          if (key.tenant_id) {
+          if (key.tenantId) {
             try {
               const tenants = await database.getAllTenants();
-              const tenant = tenants.rows.find((t: any) => t.id === key.tenant_id);
+              console.log("🚀 ~ AdminController ~ getRegistrationKeys ~ tenants:", tenants)
+              const tenant = tenants.rows.find((t: any) => t.id === key.tenantId);
               if (tenant) {
                 tenantInfo = {
                   id: tenant.id,
@@ -127,8 +132,8 @@ export class AdminController {
             const { prisma } = await import('../config/database');
 
             // Buscar usuários que usaram esta key
-            if (key.used_logs && key.used_logs !== '[]') {
-              const usedLogs = typeof key.used_logs === 'string' ? JSON.parse(key.used_logs) : key.used_logs;
+            if (key.usedLogs && key.usedLogs !== '[]') {
+              const usedLogs = typeof key.usedLogs === 'string' ? JSON.parse(key.usedLogs) : key.usedLogs;
               if (Array.isArray(usedLogs) && usedLogs.length > 0) {
                 const lastUsage = usedLogs[ usedLogs.length - 1 ];
                 if (lastUsage && lastUsage.email) {
@@ -136,7 +141,7 @@ export class AdminController {
                   const user = await prisma.user.findFirst({
                     where: {
                       email: lastUsage.email,
-                      tenantId: key.tenant_id || undefined
+                      tenantId: key.tenantId || undefined
                     },
                     select: {
                       id: true,
@@ -164,7 +169,7 @@ export class AdminController {
             }
 
             // Se não encontrou nos logs, tentar buscar por outras formas
-            if (!userInfo && key.uses_left < key.uses_allowed) {
+            if (!userInfo && key.usesLeft < key.usesAllowed) {
               // Key foi usada mas pode não ter logs completos
               isActive = false;
             }
@@ -173,16 +178,16 @@ export class AdminController {
           }
 
           // Determine if key is truly inactive (not used and not expired)
-          const isExpired = key.expires_at ? new Date(key.expires_at) < new Date() : false;
+          const isExpired = key.expiresAt ? new Date(key.expiresAt) < new Date() : false;
           const isRevoked = key.revoked;
-          const hasNoUsesLeft = key.uses_left <= 0;
+          const hasNoUsesLeft = key.usesLeft <= 0;
 
           isActive = !userInfo && !isExpired && !isRevoked && !hasNoUsesLeft;
 
           return {
             id: key.id,
             key: '***HIDDEN***', // Never return the actual key
-            accountType: key.account_type,
+            accountType: key.accountType,
             isUsed: !!userInfo,
             isRevoked: key.revoked,
             isActive: isActive,
@@ -191,10 +196,10 @@ export class AdminController {
             usedAt: userInfo?.usedAt || null,
             userInfo: userInfo,
             tenantInfo: tenantInfo,
-            createdAt: key.created_at,
-            expiresAt: key.expires_at,
-            usesAllowed: key.uses_allowed,
-            usesLeft: key.uses_left,
+            createdAt: key.createdAt,
+            expiresAt: key.expiresAt,
+            usesAllowed: key.usesAllowed,
+            usesLeft: key.usesLeft,
             status: userInfo ? 'USED' : (isExpired ? 'EXPIRED' : (isRevoked ? 'REVOKED' : 'ACTIVE'))
           };
         })

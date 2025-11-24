@@ -24,7 +24,7 @@ export interface Publication {
   content: string;
   source: 'CNJ-DATAJUD' | 'Codilo' | 'JusBrasil';
   external_id?: string;
-  status: 'novo' | 'lido' | 'arquivado';
+  status: 'nova' | 'pendente' | 'atribuida' | 'finalizada' | 'descartada';
   created_at: string;
   updated_at: string;
   is_active: boolean;
@@ -37,10 +37,21 @@ export interface CreatePublicationData {
   content: string;
   source: 'CNJ-DATAJUD' | 'Codilo' | 'JusBrasil';
   externalId?: string;
-  status?: 'novo' | 'lido' | 'arquivado';
+  status?: 'nova' | 'pendente' | 'atribuida' | 'finalizada' | 'descartada';
 }
 
-export interface UpdatePublicationData extends Partial<CreatePublicationData> {}
+export interface UpdatePublicationData extends Partial<CreatePublicationData> {
+  urgencia?: 'baixa' | 'media' | 'alta';
+  responsavel?: string;
+  varaComarca?: string;
+  nomePesquisado?: string;
+  diario?: string;
+  observacoes?: string;
+  atribuidaParaId?: string;
+  atribuidaParaNome?: string;
+  dataAtribuicao?: string | Date;
+  tarefasVinculadas?: string[];
+}
 
 export interface PublicationFilters {
   page?: number;
@@ -69,7 +80,18 @@ export class PublicationsService {
         content TEXT NOT NULL,
         source VARCHAR NOT NULL CHECK (source IN ('CNJ-DATAJUD', 'Codilo', 'JusBrasil')),
         external_id VARCHAR,
-        status VARCHAR DEFAULT 'novo' CHECK (status IN ('novo', 'lido', 'arquivado')),
+        status VARCHAR DEFAULT 'nova',
+        urgencia VARCHAR DEFAULT 'media',
+        responsavel VARCHAR,
+        vara_comarca VARCHAR,
+        nome_pesquisado VARCHAR,
+        diario VARCHAR,
+        observacoes TEXT,
+        atribuida_para_id VARCHAR,
+        atribuida_para_nome VARCHAR,
+        data_atribuicao TIMESTAMP,
+        tarefas_vinculadas JSONB DEFAULT '[]',
+        metadata JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         is_active BOOLEAN DEFAULT TRUE,
@@ -79,12 +101,31 @@ export class PublicationsService {
     
     await queryTenantSchema(tenantDB, createTableQuery);
     
+    const alterColumns = [
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS urgencia VARCHAR DEFAULT 'media'`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS responsavel VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS vara_comarca VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS nome_pesquisado VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS diario VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS observacoes TEXT`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS atribuida_para_id VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS atribuida_para_nome VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS data_atribuicao TIMESTAMP`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS tarefas_vinculadas JSONB DEFAULT '[]'`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'`,
+      `ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN status SET DEFAULT 'nova'`
+    ];
+    for (const stmt of alterColumns) {
+      await queryTenantSchema(tenantDB, stmt);
+    }
+    
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_user_id ON \${schema}.${this.tableName}(user_id)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_oab_number ON \${schema}.${this.tableName}(oab_number)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_source ON \${schema}.${this.tableName}(source)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_date ON \${schema}.${this.tableName}(publication_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_responsavel ON \${schema}.${this.tableName}(responsavel)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_urgencia ON \${schema}.${this.tableName}(urgencia)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
     ];
     
@@ -197,7 +238,7 @@ export class PublicationsService {
       content: publicationData.content,
       source: publicationData.source,
       external_id: publicationData.externalId || null,
-      status: publicationData.status || 'novo'
+      status: publicationData.status || 'nova'
     };
     
     return await insertInTenantSchema<Publication>(tenantDB, this.tableName, data);
@@ -208,17 +249,43 @@ export class PublicationsService {
    */
   async updatePublication(tenantDB: TenantDatabase, userId: string, publicationId: string, updateData: UpdatePublicationData): Promise<Publication | null> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
       UPDATE \${schema}.${this.tableName}
       SET 
         status = COALESCE($3, status),
+        urgencia = COALESCE($4, urgencia),
+        responsavel = COALESCE($5, responsavel),
+        vara_comarca = COALESCE($6, vara_comarca),
+        nome_pesquisado = COALESCE($7, nome_pesquisado),
+        diario = COALESCE($8, diario),
+        observacoes = COALESCE($9, observacoes),
+        atribuida_para_id = COALESCE($10, atribuida_para_id),
+        atribuida_para_nome = COALESCE($11, atribuida_para_nome),
+        data_atribuicao = COALESCE($12::timestamptz, data_atribuicao),
+        tarefas_vinculadas = COALESCE($13::jsonb, tarefas_vinculadas),
         updated_at = NOW()
       WHERE id = $1 AND user_id = $2 AND is_active = TRUE
       RETURNING *
     `;
-    
-    const result = await queryTenantSchema<Publication>(tenantDB, query, [publicationId, userId, updateData.status]);
+
+    const params = [
+      publicationId,
+      userId,
+      updateData.status,
+      updateData.urgencia,
+      updateData.responsavel,
+      updateData.varaComarca,
+      updateData.nomePesquisado,
+      updateData.diario,
+      updateData.observacoes,
+      updateData.atribuidaParaId,
+      updateData.atribuidaParaNome,
+      updateData.dataAtribuicao ? (updateData.dataAtribuicao instanceof Date ? updateData.dataAtribuicao.toISOString() : updateData.dataAtribuicao) : null,
+      updateData.tarefasVinculadas ? JSON.stringify(updateData.tarefasVinculadas) : null,
+    ];
+
+    const result = await queryTenantSchema<Publication>(tenantDB, query, params);
     return result[0] || null;
   }
 
@@ -243,9 +310,11 @@ export class PublicationsService {
    */
   async getPublicationsStats(tenantDB: TenantDatabase, userId: string): Promise<{
     total: number;
-    novo: number;
-    lido: number;
-    arquivado: number;
+    nova: number;
+    pendente: number;
+    atribuida: number;
+    finalizada: number;
+    descartada: number;
     thisMonth: number;
   }> {
     await this.ensureTables(tenantDB);
@@ -253,9 +322,11 @@ export class PublicationsService {
     const query = `
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'novo') as novo,
-        COUNT(*) FILTER (WHERE status = 'lido') as lido,
-        COUNT(*) FILTER (WHERE status = 'arquivado') as arquivado,
+        COUNT(*) FILTER (WHERE status = 'nova') as nova,
+        COUNT(*) FILTER (WHERE status = 'pendente') as pendente,
+        COUNT(*) FILTER (WHERE status = 'atribuida') as atribuida,
+        COUNT(*) FILTER (WHERE status = 'finalizada') as finalizada,
+        COUNT(*) FILTER (WHERE status = 'descartada') as descartada,
         COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('month', NOW())) as this_month
       FROM \${schema}.${this.tableName}
       WHERE user_id = $1 AND is_active = TRUE
@@ -266,9 +337,11 @@ export class PublicationsService {
     
     return {
       total: parseInt(stats.total || '0'),
-      novo: parseInt(stats.novo || '0'),
-      lido: parseInt(stats.lido || '0'),
-      arquivado: parseInt(stats.arquivado || '0'),
+      nova: parseInt(stats.nova || '0'),
+      pendente: parseInt(stats.pendente || '0'),
+      atribuida: parseInt(stats.atribuida || '0'),
+      finalizada: parseInt(stats.finalizada || '0'),
+      descartada: parseInt(stats.descartada || '0'),
       thisMonth: parseInt(stats.this_month || '0')
     };
   }

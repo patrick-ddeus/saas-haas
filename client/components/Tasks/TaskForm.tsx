@@ -31,14 +31,15 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { Task, TaskStatus, TaskPriority, Subtask } from '@/types/tasks';
+import { useFormData } from '@/hooks/useFormData';
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().optional(),
   startDate: z.string().min(1, 'Data de início é obrigatória'),
   endDate: z.string().min(1, 'Data de fim é obrigatória'),
-  status: z.enum(['not_started', 'in_progress', 'completed', 'on_hold', 'cancelled']),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']),
+  status: z.enum([ 'not_started', 'in_progress', 'completed', 'on_hold', 'cancelled' ]),
+  priority: z.enum([ 'low', 'medium', 'high', 'urgent' ]),
   assignedTo: z.string().min(1, 'Responsável é obrigatório'),
   projectId: z.string().optional(),
   clientId: z.string().optional(),
@@ -74,57 +75,25 @@ const priorityOptions = [
   { value: 'urgent', label: 'Urgente', color: 'text-red-600' },
 ];
 
-// RESPONSÁVEL: Colaboradores que têm acesso ao sistema
-// COMENTÁRIO IMPLEMENTAÇÃO: Lista todos os colaboradores cadastrados no sistema com acesso
-// Incluindo: Contas Simples, Contas Compostas e Contas Gerenciais
-// Esta lista seria carregada dinamicamente da API: GET /api/users/collaborators
-// Filtros por tipo de conta e permissões de acesso
-const assignedToOptions = [
-  // CONTA GERENCIAL (acesso total)
-  'Dr. Silva - Sócio Gerente',
-  'Dra. Costa - Sócia Diretora',
-
-  // CONTA COMPOSTA (acesso ao fluxo de caixa e dashboard completo)
-  'Dr. Oliveira - Advogado Sênior',
-  'Dra. Ferreira - Advogada Especialista',
-
-  // CONTA SIMPLES (acesso limitado - sem financeiro)
-  'Ana Paralegal - Assistente Jurídica',
-  'Carlos Estagiário - Estagiário',
-  'Marina Santos - Advogada Júnior',
-  'Rafael Lima - Paralegal',
-
-  // IMPLEMENTAÇÃO FUTURA:
-  // Esta lista será carregada dinamicamente do backend baseada em:
-  // - Usuários ativos no sistema
-  // - Tipo de conta (Simples, Composta, Gerencial)
-  // - Permissões específicas
-  // - Status do colaborador (ativo/inativo)
-  // API: GET /api/users?role=collaborator&status=active
-];
-
-const projectOptions = [
-  { id: '1', name: 'Ação Previdenciária - João Santos' },
-  { id: '2', name: 'Divórcio Consensual - Maria e Carlos' },
-  { id: '3', name: 'Recuperação Judicial - Tech LTDA' },
-  { id: '4', name: 'Ação Trabalhista - Pedro Souza' },
-];
-
 export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false, existingTags = [] }: TaskFormProps) {
-  const [tags, setTags] = useState<string[]>(task?.tags || []);
-  const [newTag, setNewTag] = useState('');
-  const [subtasks, setSubtasks] = useState<Subtask[]>(task?.subtasks || []);
-  const [newSubtask, setNewSubtask] = useState('');
+  const [ tags, setTags ] = useState<string[]>(task?.tags || []);
+  const [ newTag, setNewTag ] = useState('');
+  const [ subtasks, setSubtasks ] = useState<Subtask[]>(task?.subtasks || []);
+  const [ newSubtask, setNewSubtask ] = useState('');
 
-  const form = useForm<TaskFormData>({
-    resolver: zodResolver(taskSchema),
+  // Dados reais para relacionamentos
+  const { projects, collaborators } = useFormData();
+
+  const form = useForm<TaskFormData & { assignedToName?: string }>({
+    resolver: zodResolver(taskSchema.extend({ assignedToName: z.string().optional() })),
     defaultValues: {
       title: task?.title || '',
       description: task?.description || '',
-      startDate: task?.startDate ? task.startDate.split('T')[0] : '',
-      endDate: task?.endDate ? task.endDate.split('T')[0] : '',
+      startDate: task?.startDate ? task.startDate.split('T')[ 0 ] : '',
+      endDate: task?.endDate ? task.endDate.split('T')[ 0 ] : '',
       status: task?.status || 'not_started',
       priority: task?.priority || 'medium',
+      // assignedTo passa a ser userId; se valor antigo não for id, começa vazio
       assignedTo: task?.assignedTo || '',
       projectId: task?.projectId || 'none',
       clientId: task?.clientId || '',
@@ -132,6 +101,7 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
       actualHours: task?.actualHours || 0,
       progress: task?.progress || 0,
       notes: task?.notes || '',
+      assignedToName: undefined,
     },
   });
 
@@ -142,8 +112,8 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
         form.reset({
           title: task.title || '',
           description: task.description || '',
-          startDate: task.startDate ? task.startDate.split('T')[0] : '',
-          endDate: task.endDate ? task.endDate.split('T')[0] : '',
+          startDate: task.startDate ? task.startDate.split('T')[ 0 ] : '',
+          endDate: task.endDate ? task.endDate.split('T')[ 0 ] : '',
           status: task.status || 'not_started',
           priority: task.priority || 'medium',
           assignedTo: task.assignedTo || '',
@@ -153,6 +123,7 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
           actualHours: task.actualHours || 0,
           progress: task.progress || 0,
           notes: task.notes || '',
+          assignedToName: undefined,
         });
         setTags(task.tags || []);
         setSubtasks(task.subtasks || []);
@@ -177,15 +148,16 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
         setSubtasks([]);
       }
     }
-  }, [task, form, open]);
+  }, [ task, form, open ]);
 
-  const handleSubmit = (data: TaskFormData) => {
-    // Convert "none" back to empty string for projectId
+  const handleSubmit = (data: TaskFormData & { assignedToName?: string }) => {
     const submitData = {
       ...data,
       projectId: data.projectId === 'none' ? '' : data.projectId,
       tags,
-      subtasks
+      subtasks,
+      // Garantir que assignedToName esteja preenchido conforme seleção
+      assignedToName: data.assignedToName || collaborators.find(c => c.id === data.assignedTo)?.name || '',
     };
     onSubmit(submitData);
     onOpenChange(false);
@@ -194,9 +166,16 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
     setSubtasks([]);
   };
 
+  // Agrupar colaboradores por tipo de conta
+  const groupedByAccountType = {
+    GERENCIAL: (collaborators || []).filter(c => c.accountType === 'GERENCIAL'),
+    COMPOSTA: (collaborators || []).filter(c => c.accountType === 'COMPOSTA'),
+    SIMPLES: (collaborators || []).filter(c => c.accountType === 'SIMPLES'),
+  };
+
   const addTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
+      setTags([ ...tags, newTag.trim() ]);
       setNewTag('');
     }
   };
@@ -207,7 +186,7 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
 
   const addExistingTag = (tag: string) => {
     if (!tags.includes(tag)) {
-      setTags([...tags, tag]);
+      setTags([ ...tags, tag ]);
     }
   };
 
@@ -219,7 +198,7 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
         completed: false,
         createdAt: new Date().toISOString(),
       };
-      setSubtasks([...subtasks, subtask]);
+      setSubtasks([ ...subtasks, subtask ]);
       setNewSubtask('');
     }
   };
@@ -229,13 +208,13 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
   };
 
   const toggleSubtask = (subtaskId: string) => {
-    setSubtasks(subtasks.map(subtask => 
-      subtask.id === subtaskId 
-        ? { 
-            ...subtask, 
-            completed: !subtask.completed,
-            completedAt: !subtask.completed ? new Date().toISOString() : undefined
-          }
+    setSubtasks(subtasks.map(subtask =>
+      subtask.id === subtaskId
+        ? {
+          ...subtask,
+          completed: !subtask.completed,
+          completedAt: !subtask.completed ? new Date().toISOString() : undefined
+        }
         : subtask
     ));
   };
@@ -251,6 +230,17 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
             Preencha as informações da tarefa. Campos marcados com * são obrigatórios.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Fallback visual: nenhum colaborador ativo */}
+        {(!collaborators || collaborators.length === 0) && (
+          <div className="mb-4 rounded border p-3 bg-yellow-50 text-yellow-900">
+            <div className="font-medium">Nenhum colaborador ativo encontrado.</div>
+            <div className="text-sm">
+              Cadastre usuários com acesso ao sistema em{' '}
+              <a href="/settings" className="underline font-medium">Configurações</a>.
+            </div>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -376,20 +366,71 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Responsável *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val); // salva userId
+                          const sel = collaborators.find(c => c.id === val);
+                          form.setValue('assignedToName', sel?.name || '');
+                        }}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o responsável" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {assignedToOptions.map((person) => (
-                            <SelectItem key={person} value={person}>
-                              {person}
-                            </SelectItem>
-                          ))}
+                          {/* Grupo: GERENCIAL */}
+                          {groupedByAccountType.GERENCIAL.length > 0 && (
+                            <>
+                              <div className="px-2 py-1 text-xs text-muted-foreground">Contas GERENCIAIS</div>
+                              {groupedByAccountType.GERENCIAL.map((colab) => (
+                                <SelectItem key={colab.id} value={colab.id}>
+                                  {colab.name} - GERENCIAL
+                                </SelectItem>
+                              ))}
+                              <div className="my-1 border-t" />
+                            </>
+                          )}
+
+                          {/* Grupo: COMPOSTA */}
+                          {groupedByAccountType.COMPOSTA.length > 0 && (
+                            <>
+                              <div className="px-2 py-1 text-xs text-muted-foreground">Contas COMPOSTAS</div>
+                              {groupedByAccountType.COMPOSTA.map((colab) => (
+                                <SelectItem key={colab.id} value={colab.id}>
+                                  {colab.name} - COMPOSTA
+                                </SelectItem>
+                              ))}
+                              <div className="my-1 border-t" />
+                            </>
+                          )}
+
+                          {/* Grupo: SIMPLES */}
+                          {groupedByAccountType.SIMPLES.length > 0 && (
+                            <>
+                              <div className="px-2 py-1 text-xs text-muted-foreground">Contas SIMPLES</div>
+                              {groupedByAccountType.SIMPLES.map((colab) => (
+                                <SelectItem key={colab.id} value={colab.id}>
+                                  {colab.name} - SIMPLES
+                                </SelectItem>
+                              ))}
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
+                      {/* Exibe o nome salvo para histórico robusto */}
+                      {form.watch('assignedToName') && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Selecionado: {form.watch('assignedToName')}
+                        </div>
+                      )}
+                      {/* Se edição e valor não bater com algum ID, exibe aviso */}
+                      {isEditing && field.value && !collaborators.some(c => c.id === field.value) && (
+                        <div className="text-xs text-yellow-700 mt-1">
+                          Responsável atual não corresponde a um usuário ativo. Selecione um colaborador.
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -402,10 +443,10 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
                     <FormItem>
                       <FormLabel>Progresso (%)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          max="100" 
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
                           placeholder="0"
                           {...field}
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
@@ -436,9 +477,9 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="none">Nenhum projeto</SelectItem>
-                          {projectOptions.map((project) => (
+                          {(projects || []).map((project) => (
                             <SelectItem key={project.id} value={project.id}>
-                              {project.name}
+                              {project.title}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -461,10 +502,10 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
                     <FormItem>
                       <FormLabel>Horas Estimadas</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          step="0.5"
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.5}
                           placeholder="0"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
@@ -482,9 +523,9 @@ export function TaskForm({ open, onOpenChange, task, onSubmit, isEditing = false
                     <FormItem>
                       <FormLabel>Horas Realizadas</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          min="0" 
+                        <Input
+                          type="number"
+                          min="0"
                           step="0.5"
                           placeholder="0"
                           {...field}

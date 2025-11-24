@@ -2,8 +2,8 @@ export interface Project {
   id: string;
   title: string;
   description?: string;
-  clientName: string;
-  clientId?: string;
+  client_name: string;
+  client_id?: string;
   organization?: string;
   contacts: ProjectContact[];
   files?: Array<any>
@@ -11,21 +11,21 @@ export interface Project {
   budget?: number;
   currency: 'BRL' | 'USD' | 'EUR';
   status: ProjectStatus;
-  startDate?: string;
-  dueDate?: string;
-  completedAt?: string;
+  start_date?: string;
+  due_date?: string;
+  completed_at?: string;
   tags: string[];
-  assignedTo: string[];
+  assigned_to: string[];
   priority: 'low' | 'medium' | 'high' | 'urgent';
   progress: number; // 0-100
   notes?: string;
   attachments: ProjectAttachment[];
   
   // Audit fields
-  createdBy: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  created_by: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type ProjectStatus =

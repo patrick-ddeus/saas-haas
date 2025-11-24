@@ -105,9 +105,11 @@ export class InvoicesService {
         client_name VARCHAR NOT NULL,
         client_email VARCHAR,
         client_phone VARCHAR,
+        project_id VARCHAR,
+        project_name VARCHAR,
         amount DECIMAL(15,2) NOT NULL,
         currency VARCHAR(3) DEFAULT 'BRL',
-        status VARCHAR DEFAULT 'draft',
+        status VARCHAR DEFAULT 'nova',
         due_date DATE NOT NULL,
         items JSONB DEFAULT '[]',
         tags JSONB DEFAULT '[]',
@@ -119,24 +121,57 @@ export class InvoicesService {
         email_sent_at TIMESTAMP,
         reminders_sent INTEGER DEFAULT 0,
         last_reminder_at TIMESTAMP,
+        stripe_invoice_id VARCHAR,
+        stripe_payment_intent_id VARCHAR,
+        link_pagamento TEXT,
+        recorrente BOOLEAN DEFAULT FALSE,
+        intervalo_dias INTEGER DEFAULT 30,
+        proxima_fatura_data DATE,
+        servico_prestado VARCHAR,
+        urgencia VARCHAR DEFAULT 'media',
+        tentativas_cobranca INTEGER DEFAULT 0,
         created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         is_active BOOLEAN DEFAULT TRUE
       )
     `;
-    
+
     await queryTenantSchema(tenantDB, createTableQuery);
-    
+
+    const alterColumns = [
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS project_id VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS project_name VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS payment_status VARCHAR DEFAULT 'pending'`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS payment_method VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS payment_date DATE`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS stripe_invoice_id VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS link_pagamento TEXT`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS recorrente BOOLEAN DEFAULT FALSE`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS intervalo_dias INTEGER DEFAULT 30`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS proxima_fatura_data DATE`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS servico_prestado VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS urgencia VARCHAR DEFAULT 'media'`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS tentativas_cobranca INTEGER DEFAULT 0`,
+      `ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN status SET DEFAULT 'nova'`
+    ];
+
+    for (const alterQuery of alterColumns) {
+      await queryTenantSchema(tenantDB, alterQuery);
+    }
+
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_number ON \${schema}.${this.tableName}(number)`,
-      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_name ON \${schema}.${this.tableName}(client_name)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_payment_status ON \${schema}.${this.tableName}(payment_status)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_due_date ON \${schema}.${this.tableName}(due_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_client_id ON \${schema}.${this.tableName}(client_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_project_id ON \${schema}.${this.tableName}(project_id)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`
     ];
-    
+
     for (const indexQuery of indexes) {
       await queryTenantSchema(tenantDB, indexQuery);
     }
@@ -150,76 +185,80 @@ export class InvoicesService {
     pagination: any;
   }> {
     await this.ensureTables(tenantDB);
-    
+
     const page = filters.page || 1;
     const limit = filters.limit || 50;
     const offset = (page - 1) * limit;
-    
-    let whereConditions = ['is_active = TRUE'];
+
+    let whereConditions = ['inv.is_active = TRUE'];
     let queryParams: any[] = [];
     let paramIndex = 1;
-    
+
     if (filters.status) {
       whereConditions.push(`status = $${paramIndex}`);
       queryParams.push(filters.status);
       paramIndex++;
     }
-    
+
     if (filters.paymentStatus) {
       whereConditions.push(`payment_status = $${paramIndex}`);
       queryParams.push(filters.paymentStatus);
       paramIndex++;
     }
-    
+
     if (filters.search) {
       whereConditions.push(`(number ILIKE $${paramIndex} OR title ILIKE $${paramIndex} OR client_name ILIKE $${paramIndex})`);
       queryParams.push(`%${filters.search}%`);
       paramIndex++;
     }
-    
+
     if (filters.clientId) {
       whereConditions.push(`client_id = $${paramIndex}`);
       queryParams.push(filters.clientId);
       paramIndex++;
     }
-    
+
     if (filters.tags && filters.tags.length > 0) {
       whereConditions.push(`tags ?| $${paramIndex}`);
       queryParams.push(filters.tags);
       paramIndex++;
     }
-    
+
     if (filters.dateFrom) {
       whereConditions.push(`due_date >= $${paramIndex}`);
       queryParams.push(filters.dateFrom);
       paramIndex++;
     }
-    
+
     if (filters.dateTo) {
       whereConditions.push(`due_date <= $${paramIndex}`);
       queryParams.push(filters.dateTo);
       paramIndex++;
     }
-    
+
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-    
+
     const invoicesQuery = `
-      SELECT * FROM \${schema}.${this.tableName}
+      SELECT 
+        inv.*, 
+        COALESCE(u.name, inv.created_by) AS created_by_name
+      FROM \${schema}.${this.tableName} inv
+      LEFT JOIN public.users u ON u.id::text = inv.created_by
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY inv.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    
-    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} ${whereClause}`;
-    
-    const [invoices, countResult] = await Promise.all([
-      queryTenantSchema<Invoice>(tenantDB, invoicesQuery, [...queryParams, limit, offset]),
-      queryTenantSchema<{total: string}>(tenantDB, countQuery, queryParams)
+
+    const countQuery = `SELECT COUNT(*) as total FROM \${schema}.${this.tableName} inv ${whereClause}`;
+
+    const [ invoices, countResult ] = await Promise.all([
+      queryTenantSchema<Invoice>(tenantDB, invoicesQuery, [ ...queryParams, limit, offset ]),
+      queryTenantSchema<{ total: string }>(tenantDB, countQuery, queryParams)
     ]);
-    
-    const total = parseInt(countResult[0]?.total || '0');
+
+    const total = parseInt(countResult[ 0 ]?.total || '0');
     const totalPages = Math.ceil(total / limit);
-    
+
     return {
       invoices,
       pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 }
@@ -231,10 +270,15 @@ export class InvoicesService {
    */
   async getInvoiceById(tenantDB: TenantDatabase, invoiceId: string): Promise<Invoice | null> {
     await this.ensureTables(tenantDB);
-    
-    const query = `SELECT * FROM \${schema}.${this.tableName} WHERE id = $1 AND is_active = TRUE`;
-    const result = await queryTenantSchema<Invoice>(tenantDB, query, [invoiceId]);
-    return result[0] || null;
+
+    const query = `
+      SELECT inv.*, COALESCE(u.name, inv.created_by) AS created_by_name
+      FROM \${schema}.${this.tableName} inv
+      LEFT JOIN public.users u ON u.id::text = inv.created_by
+      WHERE inv.id = $1 AND inv.is_active = TRUE
+    `;
+    const result = await queryTenantSchema<Invoice>(tenantDB, query, [ invoiceId ]);
+    return result[ 0 ] || null;
   }
 
   /**
@@ -242,9 +286,9 @@ export class InvoicesService {
    */
   async createInvoice(tenantDB: TenantDatabase, invoiceData: CreateInvoiceData, createdBy: string): Promise<Invoice> {
     await this.ensureTables(tenantDB);
-    
+
     const invoiceId = `invoice_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    
+
     const data = {
       id: invoiceId,
       number: invoiceData.number,
@@ -258,12 +302,13 @@ export class InvoicesService {
       currency: invoiceData.currency || 'BRL',
       status: invoiceData.status || 'draft',
       due_date: invoiceData.dueDate,
-      items: JSON.stringify(invoiceData.items || []),
-     tags: invoiceData.tags || [],
+      items: invoiceData.items || [],
+      servico_prestado: invoiceData.title || (invoiceData.items?.[ 0 ]?.description ?? null),
+      tags: invoiceData.tags || [],
       notes: invoiceData.notes || null,
       created_by: createdBy
     };
-    
+
     return await insertInTenantSchema<Invoice>(tenantDB, this.tableName, data);
   }
 
@@ -272,9 +317,9 @@ export class InvoicesService {
    */
   async updateInvoice(tenantDB: TenantDatabase, invoiceId: string, updateData: UpdateInvoiceData): Promise<Invoice | null> {
     await this.ensureTables(tenantDB);
-    
+
     const data: Record<string, any> = {};
-    
+
     if (updateData.number !== undefined) data.number = updateData.number;
     if (updateData.title !== undefined) data.title = updateData.title;
     if (updateData.description !== undefined) data.description = updateData.description;
@@ -286,17 +331,18 @@ export class InvoicesService {
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;
     if (updateData.dueDate !== undefined) data.due_date = updateData.dueDate;
-    if (updateData.items !== undefined) data.items = JSON.stringify(updateData.items);
+    if (updateData.items !== undefined) data.items = updateData.items;
     if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
+    if ((updateData as any).servico_prestado !== undefined) data.servico_prestado = (updateData as any).servico_prestado;
     if (updateData.paymentStatus !== undefined) data.payment_status = updateData.paymentStatus;
     if (updateData.paymentMethod !== undefined) data.payment_method = updateData.paymentMethod;
     if (updateData.paymentDate !== undefined) data.payment_date = updateData.paymentDate;
-    
+
     if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');
     }
-    
+
     return await updateInTenantSchema<Invoice>(tenantDB, this.tableName, invoiceId, data);
   }
 
@@ -323,7 +369,7 @@ export class InvoicesService {
     thisMonth: number;
   }> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
       SELECT 
         COUNT(*) as total,
@@ -337,10 +383,10 @@ export class InvoicesService {
       FROM \${schema}.${this.tableName}
       WHERE is_active = TRUE
     `;
-    
+
     const result = await queryTenantSchema<any>(tenantDB, query);
-    const stats = result[0];
-    
+    const stats = result[ 0 ];
+
     return {
       total: parseInt(stats.total || '0'),
       draft: parseInt(stats.draft || '0'),
@@ -358,7 +404,7 @@ export class InvoicesService {
    */
   async markInvoiceAsSent(tenantDB: TenantDatabase, invoiceId: string): Promise<boolean> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
       UPDATE \${schema}.${this.tableName}
       SET 
@@ -368,8 +414,8 @@ export class InvoicesService {
         updated_at = NOW()
       WHERE id = $1 AND is_active = TRUE
     `;
-    
-    const result = await queryTenantSchema(tenantDB, query, [invoiceId]);
+
+    const result = await queryTenantSchema(tenantDB, query, [ invoiceId ]);
     return result.length > 0;
   }
 
@@ -378,7 +424,7 @@ export class InvoicesService {
    */
   async incrementReminders(tenantDB: TenantDatabase, invoiceId: string): Promise<boolean> {
     await this.ensureTables(tenantDB);
-    
+
     const query = `
       UPDATE \${schema}.${this.tableName}
       SET 
@@ -387,8 +433,8 @@ export class InvoicesService {
         updated_at = NOW()
       WHERE id = $1 AND is_active = TRUE
     `;
-    
-    const result = await queryTenantSchema(tenantDB, query, [invoiceId]);
+
+    const result = await queryTenantSchema(tenantDB, query, [ invoiceId ]);
     return result.length > 0;
   }
 }

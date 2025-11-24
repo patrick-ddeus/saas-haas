@@ -264,8 +264,11 @@ export class AuthService {
 
         // Use the correct field name based on Prisma schema
         const keyHashField = validKey.keyHash;
+        console.log("🚀 ~ AuthService ~ registerUser ~ key:", key)
+        const isKeyValid = await bcrypt.compare(key, keyHashField || '');
+        console.log("🚀 ~ AuthService ~ registerUser ~ isKeyValid:", isKeyValid)
 
-        if (keyHashField && await bcrypt.compare(key, keyHashField)) {
+        if (keyHashField && isKeyValid) {
           console.log('Key match found for ID:', validKey.id);
           registrationKey = validKey;
           break;

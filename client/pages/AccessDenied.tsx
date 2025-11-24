@@ -49,7 +49,7 @@ export function AccessDenied() {
 
           <div className="space-y-3">
             <Button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/')}
               variant="outline"
               className="w-full"
             >

@@ -193,6 +193,7 @@ export class InvoicesController {
       }
 
       const { id } = req.params;
+      console.log("🚀 ~ InvoicesController ~ deleteInvoice ~ id:", id)
       const deleted = await invoicesService.deleteInvoice(req.tenantDB, id);
 
       if (!deleted) {

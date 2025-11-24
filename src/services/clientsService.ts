@@ -29,13 +29,11 @@ export interface Client {
   email: string;
   phone?: string;
   organization?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-  };
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
   budget?: number;
   currency?: 'BRL' | 'USD' | 'EUR';
   status: 'active' | 'inactive' | 'pending';
@@ -47,10 +45,10 @@ export interface Client {
   professionalTitle?: string;
   maritalStatus?: string;
   birthDate?: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
 }
 
 export interface CreateClientData {
@@ -110,17 +108,20 @@ export class ClientsService {
       CREATE TABLE IF NOT EXISTS \${schema}.${this.tableName} (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR NOT NULL,
+        organization VARCHAR,
         email VARCHAR NOT NULL,
         phone VARCHAR,
-        organization VARCHAR,
-        address JSONB DEFAULT '{}',
+        country VARCHAR DEFAULT 'BR',
+        state VARCHAR,
+        address TEXT,
+        city VARCHAR,
+        zip_code VARCHAR,
         budget DECIMAL(15,2),
         currency VARCHAR(3) DEFAULT 'BRL',
         level VARCHAR,
-        status VARCHAR DEFAULT 'active',
         tags JSONB DEFAULT '[]',
-        notes TEXT,
         description TEXT,
+        notes TEXT,
         cpf VARCHAR,
         rg VARCHAR,
         pis VARCHAR,
@@ -129,9 +130,10 @@ export class ClientsService {
         marital_status VARCHAR,
         birth_date DATE,
         inss_status VARCHAR,
-        amount_paid DECIMAL(15,2),
+        amount_paid DECIMAL(15,2) DEFAULT 0,
         referred_by VARCHAR,
         registered_by VARCHAR,
+        status VARCHAR DEFAULT 'active',
         created_by VARCHAR NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
@@ -141,11 +143,25 @@ export class ClientsService {
     
     await queryTenantSchema(tenantDB, createTableQuery);
     
+    const alterColumns = [
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS country VARCHAR DEFAULT 'BR'`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS state VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS city VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS zip_code VARCHAR`,
+      `ALTER TABLE \${schema}.${this.tableName} ADD COLUMN IF NOT EXISTS address TEXT`,
+      `ALTER TABLE \${schema}.${this.tableName} ALTER COLUMN amount_paid SET DEFAULT 0`
+    ];
+    for (const stmt of alterColumns) {
+      await queryTenantSchema(tenantDB, stmt);
+    }
+    
     // Criar índices para performance otimizada
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_name ON \${schema}.${this.tableName}(name)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_email ON \${schema}.${this.tableName}(email)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_status ON \${schema}.${this.tableName}(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_cpf ON \${schema}.${this.tableName}(cpf)`,
+      `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_phone ON \${schema}.${this.tableName}(phone)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_active ON \${schema}.${this.tableName}(is_active)`,
       `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_created_by ON \${schema}.${this.tableName}(created_by)`
     ];
@@ -210,8 +226,38 @@ export class ClientsService {
     // ✅ ISOLAMENTO: Query executada no schema correto via ${schema} placeholder
     const clientsQuery = `
       SELECT 
-        id, name, email, phone, organization, address, budget, currency,
-        status, tags, notes, created_by, created_at, updated_at, is_active
+        id::text                      AS id,
+        name,
+        email,
+        phone,
+        organization,
+        COALESCE(NULLIF(address,'')::jsonb->>'street', address)           AS address,
+        COALESCE(NULLIF(address,'')::jsonb->>'city',   city)               AS city,
+        COALESCE(NULLIF(address,'')::jsonb->>'state',  state)              AS state,
+        COALESCE(NULLIF(address,'')::jsonb->>'zipCode', zip_code)          AS "zipCode",
+        COALESCE(NULLIF(address,'')::jsonb->>'country', country)           AS country,
+        budget,
+        currency,
+        level,
+        tags,
+        description,
+        notes,
+        cpf,
+        rg,
+        pis,
+        cei,
+        professional_title            AS "professionalTitle",
+        marital_status                AS "maritalStatus",
+        birth_date::text              AS "birthDate",
+        inss_status                   AS "inssStatus",
+        amount_paid::numeric          AS "amountPaid",
+        referred_by                   AS "referredBy",
+        registered_by                 AS "registeredBy",
+        status,
+        created_by                    AS "createdBy",
+        created_at::text              AS "createdAt",
+        updated_at::text              AS "updatedAt",
+        is_active                     AS "isActive"
       FROM \${schema}.${this.tableName}
       ${whereClause}
       ORDER BY created_at DESC
@@ -258,8 +304,38 @@ export class ClientsService {
     // ✅ ISOLAMENTO: Query no schema correto
     const query = `
       SELECT 
-        id, name, email, phone, organization, address, budget, currency,
-        status, tags, notes, created_by, created_at, updated_at, is_active
+        id::text                      AS id,
+        name,
+        email,
+        phone,
+        organization,
+        COALESCE(NULLIF(address,'')::jsonb->>'street', address)           AS address,
+        COALESCE(NULLIF(address,'')::jsonb->>'city',   city)               AS city,
+        COALESCE(NULLIF(address,'')::jsonb->>'state',  state)              AS state,
+        COALESCE(NULLIF(address,'')::jsonb->>'zipCode', zip_code)          AS "zipCode",
+        COALESCE(NULLIF(address,'')::jsonb->>'country', country)           AS country,
+        budget,
+        currency,
+        level,
+        tags,
+        description,
+        notes,
+        cpf,
+        rg,
+        pis,
+        cei,
+        professional_title            AS "professionalTitle",
+        marital_status                AS "maritalStatus",
+        birth_date::text              AS "birthDate",
+        inss_status                   AS "inssStatus",
+        amount_paid::numeric          AS "amountPaid",
+        referred_by                   AS "referredBy",
+        registered_by                 AS "registeredBy",
+        status,
+        created_by                    AS "createdBy",
+        created_at::text              AS "createdAt",
+        updated_at::text              AS "updatedAt",
+        is_active                     AS "isActive"
       FROM \${schema}.${this.tableName}
       WHERE id = $1 AND is_active = TRUE
     `;
@@ -285,22 +361,27 @@ export class ClientsService {
       email: clientData.email,
       phone: clientData.mobile || clientData.phone || null,
       organization: clientData.organization || null,
-      address: JSON.stringify({
-        street: clientData.address || '',
-        city: clientData.city || '',
-        state: clientData.state || '',
-        zipCode: clientData.zipCode || '',
-        country: clientData.country || 'BR'
-      }),
+      address: clientData.address || null,
+      country: clientData.country || 'BR',
+      state: clientData.state || null,
+      city: clientData.city || null,
+      zip_code: clientData.zipCode || null,
       budget: clientData.budget || null,
       currency: clientData.currency || 'BRL',
       status: clientData.status || 'active',
       tags: clientData.tags || [],
-      notes: clientData.description || clientData.notes || null,
+      description: clientData.description || null,
+      notes: clientData.notes || null,
       cpf: clientData.cpf || null,
       rg: clientData.rg || null,
+      pis: clientData.pis || null,
+      cei: clientData.cei || null,
       professional_title: clientData.professionalTitle || null,
       marital_status: clientData.maritalStatus || null,
+      inss_status: clientData.inssStatus || null,
+      amount_paid: clientData.amountPaid || null,
+      referred_by: clientData.referredBy || null,
+      registered_by: clientData.registeredBy || null,
       created_by: createdBy
     };
     
@@ -331,17 +412,28 @@ export class ClientsService {
     if (updateData.email !== undefined) data.email = updateData.email;
     if (updateData.phone !== undefined) data.phone = updateData.phone;
     if (updateData.organization !== undefined) data.organization = updateData.organization;
-    if (updateData.address !== undefined) data.address = JSON.stringify(updateData.address);
+    if (updateData.address !== undefined) data.address = updateData.address || null;
+    if (updateData.country !== undefined) data.country = updateData.country || null;
+    if (updateData.state !== undefined) data.state = updateData.state || null;
+    if (updateData.city !== undefined) data.city = updateData.city || null;
+    if (updateData.zipCode !== undefined) data.zip_code = updateData.zipCode || null;
     if (updateData.budget !== undefined) data.budget = updateData.budget;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;
     if (updateData.tags !== undefined) data.tags = updateData.tags;
+    if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.cpf !== undefined) data.cpf = updateData.cpf;
     if (updateData.rg !== undefined) data.rg = updateData.rg;
+    if (updateData.pis !== undefined) data.pis = updateData.pis;
+    if (updateData.cei !== undefined) data.cei = updateData.cei;
     if (updateData.professionalTitle !== undefined) data.professional_title = updateData.professionalTitle;
     if (updateData.maritalStatus !== undefined) data.marital_status = updateData.maritalStatus;
     if (updateData.birthDate !== undefined) data.birth_date = updateData.birthDate;
+    if (updateData.inssStatus !== undefined) data.inss_status = updateData.inssStatus;
+    if (updateData.amountPaid !== undefined) data.amount_paid = updateData.amountPaid;
+    if (updateData.referredBy !== undefined) data.referred_by = updateData.referredBy;
+    if (updateData.registeredBy !== undefined) data.registered_by = updateData.registeredBy;
     
     if (Object.keys(data).length === 0) {
       throw new Error('No fields to update');

@@ -101,7 +101,7 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 }
 
 export function useAdminApi() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [ isLoading, setIsLoading ] = useState(false);
 
   const getGlobalMetrics = async (): Promise<GlobalMetrics> => {
     setIsLoading(true);
@@ -183,7 +183,7 @@ export function useAdminApi() {
     try {
       const response = await apiCall('/keys');
       console.log('Registration keys response:', response);
-      
+
       // A resposta do backend já é um array direto
       if (Array.isArray(response)) {
         return response;
@@ -203,6 +203,7 @@ export function useAdminApi() {
     accountType: string;
     tenantId?: string;
     usesAllowed?: number;
+    key?: string;
     expiresAt?: Date;
     singleUse?: boolean;
   }): Promise<{ key: string }> => {
@@ -220,6 +221,7 @@ export function useAdminApi() {
         accountType: keyData.accountType,
         tenantId: keyData.tenantId,
         usesAllowed: keyData.usesAllowed || 1,
+        key: keyData.key || null,
         singleUse: keyData.singleUse ?? true,
         expiresAt: keyData.expiresAt?.toISOString(),
       }),

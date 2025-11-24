@@ -11,9 +11,20 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { TenantRequest } from '../types';
 import { publicationsService } from '../services/publicationsService';
+import { codiloService } from '../services/codiloService';
 
 const updatePublicationSchema = z.object({
-  status: z.enum(['novo', 'lido', 'arquivado']).optional(),
+  status: z.enum(['nova', 'pendente', 'atribuida', 'finalizada', 'descartada']).optional(),
+  urgencia: z.enum(['baixa','media','alta']).optional(),
+  responsavel: z.string().optional(),
+  varaComarca: z.string().optional(),
+  nomePesquisado: z.string().optional(),
+  diario: z.string().optional(),
+  observacoes: z.string().optional(),
+  atribuidaParaId: z.string().optional(),
+  atribuidaParaNome: z.string().optional(),
+  dataAtribuicao: z.string().optional(),
+  tarefasVinculadas: z.array(z.string()).optional(),
 });
 
 export class PublicationsController {
@@ -135,6 +146,65 @@ export class PublicationsController {
         error: 'Failed to fetch publications statistics',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
+    }
+  }
+
+  async importFromCodilo(req: TenantRequest, res: Response) {
+    try {
+      if (!req.user || !req.tenantDB || !req.user.tenantId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const schema = z.object({
+        oabNumber: z.string().min(3),
+        uf: z.string().min(2),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
+      });
+      const body = schema.parse(req.body);
+
+      const processes = await codiloService.searchProcessesByOAB(req.user.tenantId, body.oabNumber, body.uf);
+
+      let created = 0;
+      for (const p of processes) {
+        const processNumber = p?.numero || p?.cnj || p?.codigo_cnj || '';
+        const publicationDate = p?.data_publicacao || p?.data || new Date().toISOString().slice(0, 10);
+        const content = p?.conteudo || p?.texto || JSON.stringify(p);
+        const externalId = String(p?.id || p?.codigo || processNumber || Math.random());
+
+        try {
+          await publicationsService.createPublication(req.tenantDB, req.user.id, {
+            oabNumber: body.oabNumber,
+            processNumber,
+            publicationDate,
+            content,
+            source: 'Codilo',
+            externalId,
+            status: 'nova',
+          });
+          created++;
+        } catch (e) {
+        }
+      }
+
+      res.json({ imported: created });
+    } catch (error) {
+      res.status(400).json({ error: 'Failed to import from Codilo', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
+  async searchCodilo(req: TenantRequest, res: Response) {
+    try {
+      if (!req.user || !req.user.tenantId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const schema = z.object({ oabNumber: z.string().min(3), uf: z.string().min(2) });
+      const query = schema.parse({ oabNumber: req.query.oabNumber as string, uf: req.query.uf as string });
+      const results = await codiloService.searchProcessesByOAB(req.user.tenantId, query.oabNumber, query.uf);
+      res.json({ results });
+    } catch (error) {
+      res.status(400).json({ error: 'Failed to search Codilo', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 }

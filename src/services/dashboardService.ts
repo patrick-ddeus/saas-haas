@@ -78,8 +78,8 @@ export class DashboardService {
    */
   async getDashboardMetrics(tenantDB: TenantDatabase, userId: string | undefined, accountType: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL'): Promise<DashboardMetrics> {
     console.log('📊 [DashboardService] Fetching metrics for account type:', accountType);
-    
-    const [clientsStats, projectsStats, tasksStats] = await Promise.all([
+
+    const [ clientsStats, projectsStats, tasksStats ] = await Promise.all([
       clientsService.getClientsStats(tenantDB),
       projectsService.getProjectsStats(tenantDB),
       tasksService.getTaskStats(tenantDB)
@@ -97,8 +97,8 @@ export class DashboardService {
 
     if (accountType === 'COMPOSTA' || accountType === 'GERENCIAL') {
       console.log('💰 [DashboardService] Fetching financial data from transactions...');
-      
-      const [transactionsStats, invoicesStats] = await Promise.all([
+
+      const [ transactionsStats, invoicesStats ] = await Promise.all([
         transactionsService.getTransactionsStats(tenantDB),
         invoicesService.getInvoicesStats(tenantDB)
       ]);
@@ -121,7 +121,7 @@ export class DashboardService {
           overdue: invoicesStats.overdue
         }
       };
-      
+
       console.log('✅ [DashboardService] Financial stats calculated:', financialStats);
     } else {
       console.log('⚠️ [DashboardService] Account type SIMPLES - financial data disabled');
@@ -163,10 +163,11 @@ export class DashboardService {
 
     const activities: RecentActivity[] = [];
 
-    const [recentClients, recentProjects, recentTasks] = await Promise.all([
+    const [ recentClients, recentProjects, recentTasks, recentInvoices ] = await Promise.all([
       clientsService.getClients(tenantDB, { limit: 5, page: 1 }),
       projectsService.getProjects(tenantDB, { limit: 5, page: 1 }),
-      tasksService.getTasks(tenantDB, { limit: 5, page: 1 })
+      tasksService.getTasks(tenantDB, { limit: 5, page: 1 }),
+      invoicesService.getInvoices(tenantDB, { limit: 20, page: 1 })
     ]);
 
     recentClients.clients.forEach(client => {
@@ -175,7 +176,7 @@ export class DashboardService {
         type: 'client',
         title: `Cliente: ${client.name}`,
         description: `Novo cliente adicionado`,
-        date: client.created_at,
+        date: client.createdAt,
         status: client.status
       });
     });
@@ -203,6 +204,23 @@ export class DashboardService {
       });
     });
 
+    // 🔗 Incluir faturas vencendo/próximas
+    recentInvoices.invoices
+      .filter(inv => ['pending', 'sent', 'overdue'].includes(inv.status))
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+      .slice(0, Math.min(5, limit)) // limitar quantidade de faturas adicionadas
+      .forEach(inv => {
+        activities.push({
+          id: inv.id,
+          type: 'invoice',
+          title: `Fatura ${inv.number} - ${inv.client_name}`,
+          description: inv.title || `Fatura para ${inv.client_name}`,
+          date: inv.due_date,
+          status: inv.status,
+          amount: Number(inv.amount)
+        });
+      });
+
     return activities
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, limit);
@@ -213,20 +231,20 @@ export class DashboardService {
    */
   async getChartData(tenantDB: TenantDatabase, accountType: 'SIMPLES' | 'COMPOSTA' | 'GERENCIAL', period: string = '30d') {
     console.log('📊 [DashboardService] Getting chart data for period:', period);
-    
+
     const dateFrom = new Date();
     dateFrom.setDate(dateFrom.getDate() - 30);
-    const dateFromStr = dateFrom.toISOString().split('T')[0];
-    
+    const dateFromStr = dateFrom.toISOString().split('T')[ 0 ];
+
     console.log('📅 [DashboardService] Date range from:', dateFromStr);
 
     let financialData = null;
 
     if (accountType === 'COMPOSTA' || accountType === 'GERENCIAL') {
       console.log('💰 [DashboardService] Fetching categories and cash flow...');
-      
+
       // Busca categorias de receitas e despesas em paralelo
-      const [incomeCategories, expenseCategories] = await Promise.all([
+      const [ incomeCategories, expenseCategories ] = await Promise.all([
         transactionsService.getTransactionsByCategory(tenantDB, 'income', dateFromStr),
         transactionsService.getTransactionsByCategory(tenantDB, 'expense', dateFromStr)
       ]);
@@ -245,7 +263,7 @@ export class DashboardService {
         },
         cashFlow: Array.isArray(cashFlowData) ? cashFlowData : []
       };
-      
+
       console.log('✅ [DashboardService] Financial chart data prepared:', financialData);
     }
 
@@ -260,7 +278,7 @@ export class DashboardService {
    * Dados do fluxo de caixa para gráficos
    */
   private async getCashFlowData(tenantDB: TenantDatabase, dateFrom: string) {
-  const query = `
+    const query = `
     SELECT 
       DATE(date) as day,
       -- ✅ GARANTE QUE O TIPO DE DADO DE SAÍDA SEJA CONSISTENTE
@@ -272,18 +290,18 @@ export class DashboardService {
     ORDER BY day ASC
   `;
 
-  const result = await queryTenantSchema(tenantDB, query, [dateFrom]);
-  
-  // Adicione este log para a verificação final
-  console.log('Dados do Fluxo de Caixa (depois da query, antes do map):', JSON.stringify(result, null, 2));
+    const result = await queryTenantSchema(tenantDB, query, [ dateFrom ]);
 
-  return result.map((row: any) => ({
-    day: row.day,
-    income: parseFloat(row.income || '0'),
-    expense: parseFloat(row.expense || '0'),
-    net: parseFloat(row.income || '0') - parseFloat(row.expense || '0')
-  }));
-}
+    // Adicione este log para a verificação final
+    console.log('Dados do Fluxo de Caixa (depois da query, antes do map):', JSON.stringify(result, null, 2));
+
+    return result.map((row: any) => ({
+      day: row.day,
+      income: parseFloat(row.income || '0'),
+      expense: parseFloat(row.expense || '0'),
+      net: parseFloat(row.income || '0') - parseFloat(row.expense || '0')
+    }));
+  }
 
   /**
    * Dados de projetos para gráficos
@@ -299,7 +317,7 @@ export class DashboardService {
       GROUP BY status
     `;
 
-    const result = await queryTenantSchema(tenantDB, query, [dateFrom]);
+    const result = await queryTenantSchema(tenantDB, query, [ dateFrom ]);
     return result.map((row: any) => ({
       status: row.status,
       count: parseInt(row.count || '0'),
@@ -322,7 +340,7 @@ export class DashboardService {
       GROUP BY status, priority
     `;
 
-    const result = await queryTenantSchema(tenantDB, query, [dateFrom]);
+    const result = await queryTenantSchema(tenantDB, query, [ dateFrom ]);
     return result.map((row: any) => ({
       status: row.status,
       priority: row.priority,

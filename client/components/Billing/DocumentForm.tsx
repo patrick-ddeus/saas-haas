@@ -42,6 +42,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Calculator } from "lucide-react";
 import { BillingItem, BaseDocument, CompanyDetails } from "@/types/billing";
+import { useClients } from "@/hooks/useClients";
+import { useAuth } from "@/hooks/useAuth";
 
 const documentSchema = z.object({
   date: z.string().min(1, "Data é obrigatória"),
@@ -76,59 +78,6 @@ interface DocumentFormProps {
   type: "estimate" | "invoice";
 }
 
-const mockCompanies = [
-  {
-    id: "1",
-    name: "Escritório Silva & Associados",
-    document: "12.345.678/0001-90",
-    email: "contato@silva.adv.br",
-    phone: "(11) 3333-4444",
-    address: "Av. Paulista, 1000, Bela Vista",
-    city: "São Paulo",
-    state: "SP",
-    zipCode: "01310-100",
-    country: "Brasil",
-  },
-];
-
-const mockClients = [
-  {
-    id: "1",
-    name: "Maria Silva Santos",
-    document: "123.456.789-00",
-    email: "maria@email.com",
-    phone: "(11) 99999-1234",
-    address: "Rua Augusta, 123, Cerqueira César",
-    city: "São Paulo",
-    state: "SP",
-    zipCode: "01305-000",
-    country: "Brasil",
-  },
-  {
-    id: "2",
-    name: "João Carlos Oliveira",
-    document: "987.654.321-00",
-    email: "joao@email.com",
-    phone: "(11) 88888-5678",
-    address: "Av. Copacabana, 456",
-    city: "Rio de Janeiro",
-    state: "RJ",
-    zipCode: "22070-000",
-    country: "Brasil",
-  },
-];
-
-const serviceItems = [
-  "Consulta jurídica",
-  "Elaboração de contrato",
-  "Petição inicial",
-  "Recurso processual",
-  "Acompanhamento processual",
-  "Audiência judicial",
-  "Parecer jurídico",
-  "Análise de documentos",
-];
-
 export function DocumentForm({
   open,
   onOpenChange,
@@ -144,8 +93,9 @@ export function DocumentForm({
     description: "",
     quantity: 1,
     rate: 0,
-    // REMOVIDO: Campos de taxa para simplificar o formulário
   });
+  const { clients, isLoading: isLoadingClients } = useClients();
+  const { user } = useAuth();
 
   const form = useForm<DocumentFormData>({
     resolver: zodResolver(documentSchema),
@@ -154,7 +104,7 @@ export function DocumentForm({
         ? doc.date.split("T")[ 0 ]
         : new Date().toISOString().split("T")[ 0 ],
       dueDate: doc?.dueDate ? doc.dueDate.split("T")[ 0 ] : "",
-      senderId: doc?.senderId || "1",
+      senderId: doc?.senderId || user?.tenantId || "tenant",
       receiverId: doc?.receiverId || "",
       title: doc?.title || "",
       description: doc?.description || "",
@@ -258,7 +208,7 @@ export function DocumentForm({
           ? doc.date.split("T")[ 0 ]
           : new Date().toISOString().split("T")[ 0 ],
         dueDate: doc.dueDate ? doc.dueDate.split("T")[ 0 ] : "",
-        senderId: doc.senderId || "1",
+        senderId: doc.senderId || user?.tenantId || "tenant",
         receiverId: doc.receiverId || "",
         title: doc.title || "",
         description: doc.description || "",
@@ -275,16 +225,15 @@ export function DocumentForm({
     } else {
       setItems([]);
     }
-  }, [ doc, open ]);
+  }, [ doc, open, user?.tenantId ]);
 
+  // Fix: submit using current form values (data was undefined before)
   const handleSubmit = createSafeDialogHandler(() => {
-    // NOVIDADE: Validação obrigatória de itens para Orçamentos e Faturas
     if (items.length === 0) {
       alert("Erro: Pelo menos um item deve ser adicionado ao documento!");
       return;
     }
 
-    // CORREÇÃO: Garantir que valores não sejam undefined/NaN
     const validItems = items.filter(item =>
       item.description &&
       !isNaN(item.quantity) &&
@@ -296,10 +245,13 @@ export function DocumentForm({
       alert("Erro: Todos os itens devem ter valores válidos!");
       return;
     }
-    // @ts-expect-error testestere
+
+    const data = form.getValues();
+    console.log("🚀 ~ DocumentForm ~ data:", data)
     onSubmit({ ...data, items: validItems });
-    safeOnOpenChange(false);
+    // safeOnOpenChange(false);
   });
+
 
   const handleClose = createSafeDialogHandler(() => {
     setItems([]);
@@ -347,7 +299,7 @@ export function DocumentForm({
 
         <Form {...form}>
           <form
-          // @ts-expect-error testestere
+            // @ts-expect-error testestere
             onSubmit={form.handleSubmit((data) => handleSubmit(data))}
             className="space-y-6"
           >
@@ -435,11 +387,12 @@ export function DocumentForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mockCompanies.map((company) => (
-                            <SelectItem key={company.id} value={company.id}>
-                              {company.name}
-                            </SelectItem>
-                          ))}
+                          <SelectItem
+                            key={user?.tenantId || "tenant"}
+                            value={user?.tenantId || "tenant"}
+                          >
+                            {user?.tenantName || "Minha Empresa"}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -459,15 +412,22 @@ export function DocumentForm({
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione o destinatário" />
+                            <SelectValue placeholder={isLoadingClients ? "Carregando clientes..." : "Selecione o destinatário"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mockClients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.name}
-                            </SelectItem>
-                          ))}
+                          {Array.isArray(clients) && clients.length > 0
+                            ? clients.map((client: any) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.name || client.fullName || client.companyName || client.email}
+                              </SelectItem>
+                            ))
+                            : (
+                              <SelectItem value="null" disabled>
+                                Nenhum cliente encontrado
+                              </SelectItem>
+                            )
+                          }
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -523,29 +483,17 @@ export function DocumentForm({
                 </p>
               </div>
 
-              {/* Add new item */}
+              {/* Add new item - replaced Select serviceItems with free text Input */}
               <div className="grid grid-cols-10 gap-2 p-4 border rounded-lg bg-muted/50">
                 <div className="col-span-5">
                   <label className="text-xs text-muted-foreground block mb-1">
                     Descrição do Serviço
                   </label>
-                  <Select
+                  <Input
+                    placeholder="Ex: Consulta jurídica, Elaboração de contrato, etc."
                     value={newItem.description}
-                    onValueChange={(value) =>
-                      setNewItem({ ...newItem, description: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um serviço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviceItems.map((service) => (
-                        <SelectItem key={service} value={service}>
-                          {service}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  />
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs text-muted-foreground block mb-1">
@@ -582,7 +530,6 @@ export function DocumentForm({
                     }
                   />
                 </div>
-                {/* REMOVIDO: Campo taxa sem funcionalidade conforme solicitado */}
                 <div className="col-span-1">
                   <label className="text-xs text-muted-foreground block mb-1">
                     Ação

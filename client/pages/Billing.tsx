@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/Layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,203 +51,253 @@ import {
   CompanyDetails,
   BillingItem
 } from '@/types/billing';
-
-// Mock data
-const mockCompanyDetails: CompanyDetails = {
-  name: 'Escritório Silva & Associados',
-  document: '12.345.678/0001-90',
-  email: 'contato@silva.adv.br',
-  phone: '(11) 3333-4444',
-  address: 'Av. Paulista, 1000, Bela Vista',
-  city: 'São Paulo',
-  state: 'SP',
-  zipCode: '01310-100',
-  country: 'Brasil',
-};
-
-const mockClientDetails: CompanyDetails = {
-  name: 'Maria Silva Santos',
-  document: '123.456.789-00',
-  email: 'maria@email.com',
-  phone: '(11) 99999-1234',
-  address: 'Rua Augusta, 123, Cerqueira César',
-  city: 'São Paulo',
-  state: 'SP',
-  zipCode: '01305-000',
-  country: 'Brasil',
-};
-
-const mockItems: BillingItem[] = [
-  {
-    id: '1',
-    description: 'Consulta jurídica especializada',
-    quantity: 2,
-    rate: 500,
-    amount: 1000,
-    tax: 0,
-  },
-  {
-    id: '2',
-    description: 'Elaboração de contrato',
-    quantity: 1,
-    rate: 1500,
-    amount: 1500,
-    tax: 0,
-  },
-];
-
-const mockEstimates: Estimate[] = [
-  {
-    id: '1',
-    type: 'estimate',
-    number: 'EST-001',
-    date: '2024-01-15T00:00:00Z',
-    dueDate: '2024-02-15T00:00:00Z',
-    validUntil: '2024-02-15T00:00:00Z',
-    senderId: '1',
-    senderName: 'Escritório Silva & Associados',
-    senderDetails: mockCompanyDetails,
-    receiverId: '1',
-    receiverName: 'Maria Silva Santos',
-    receiverDetails: mockClientDetails,
-    title: 'Orçamento para Serviços Jurídicos',
-    description: 'Serviços de consultoria e elaboração de contrato',
-    items: mockItems,
-    subtotal: 2500,
-    discount: 100,
-    discountType: 'fixed',
-    fee: 0,
-    feeType: 'fixed',
-    tax: 250,
-    taxType: 'fixed',
-    total: 2650,
-    currency: 'BRL',
-    status: 'SENT',
-    convertedToInvoice: false,
-    tags: ['Consultoria', 'Contrato', 'Prioritário'],
-    attachments: [],
-    createdAt: '2024-01-15T09:00:00Z',
-    updatedAt: '2024-01-15T09:00:00Z',
-    createdBy: 'Dr. Silva',
-    lastModifiedBy: 'Dr. Silva',
-  },
-];
-
-const mockInvoices: Invoice[] = [
-  {
-    id: '2',
-    type: 'invoice',
-    number: 'INV-001',
-    date: '2024-01-20T00:00:00Z',
-    dueDate: '2024-02-20T00:00:00Z',
-    senderId: '1',
-    senderName: 'Escritório Silva & Associados',
-    senderDetails: mockCompanyDetails,
-    receiverId: '1',
-    receiverName: 'Maria Silva Santos',
-    receiverDetails: mockClientDetails,
-    title: 'Fatura de Serviços Jurídicos',
-    description: 'Serviços prestados em Janeiro 2024',
-    items: mockItems,
-    subtotal: 2500,
-    discount: 0,
-    discountType: 'fixed',
-    fee: 0,
-    feeType: 'fixed',
-    tax: 250,
-    taxType: 'fixed',
-    total: 2750,
-    currency: 'BRL',
-    status: 'Pendente',
-    paymentStatus: 'Pendente',
-    emailSent: true,
-    emailSentAt: '2024-01-20T10:00:00Z',
-    remindersSent: 1,
-    lastReminderAt: '2024-02-10T09:00:00Z',
-    tags: ['Fatura', 'Serviços Jurídicos', 'Janeiro'],
-    attachments: [],
-    createdAt: '2024-01-20T09:00:00Z',
-    updatedAt: '2024-02-10T09:00:00Z',
-    createdBy: 'Dr. Silva',
-    lastModifiedBy: 'Dr. Silva',
-  },
-];
-
-
+import { useInvoices } from '@/hooks/useInvoices';
+import { useEstimates } from '@/hooks/useEstimates';
+import { apiService } from '@/services/apiService';
+import { useClients } from '../hooks/useClients';
 
 export function Billing() {
-  const [activeTab, setActiveTab] = useState('all');
-  const [showDocumentForm, setShowDocumentForm] = useState(false);
-  const [showDocumentView, setShowDocumentView] = useState(false);
-  const [documentType, setDocumentType] = useState<'estimate' | 'invoice'>('estimate');
-  const [editingDocument, setEditingDocument] = useState<any>(undefined);
-  const [viewingDocument, setViewingDocument] = useState<any>(null);
+  const [ activeTab, setActiveTab ] = useState('all');
+  const [ showDocumentForm, setShowDocumentForm ] = useState(false);
+  const [ showDocumentView, setShowDocumentView ] = useState(false);
+  const [ documentType, setDocumentType ] = useState<'estimate' | 'invoice'>('estimate');
+  const [ editingDocument, setEditingDocument ] = useState<any>(undefined);
+  const [ viewingDocument, setViewingDocument ] = useState<any>(null);
 
-  const [estimates, setEstimates] = useState<Estimate[]>(mockEstimates);
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
+  const [ selectedDocs, setSelectedDocs ] = useState<string[]>([]);
+  const [ searchTerm, setSearchTerm ] = useState('');
+  const [ statusFilter, setStatusFilter ] = useState<string>('all');
+  const [ showEmailModal, setShowEmailModal ] = useState(false);
 
+  const {
+    invoices: invoicesRaw,
+    isLoading: isLoadingInvoices,
+    loadInvoices,
+    createInvoice,
+    updateInvoice,
+    deleteInvoice,
+    getInvoiceStats,
+  } = useInvoices();
+  const {
+    estimates: estimatesRaw,
+    isLoading: isLoadingEstimates,
+    loadEstimates,
+    createEstimate,
+    updateEstimate,
+    deleteEstimate,
+    getEstimateStats,
+  } = useEstimates();
 
-  const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showEmailModal, setShowEmailModal] = useState(false);
+  const { clients, isLoading: isLoadingClients, loadClients } = useClients();
 
-  // Combine all documents
-  const allDocuments = [...estimates, ...invoices];
+  useEffect(() => {
+    loadInvoices();
+    loadEstimates();
+    loadClients()
+  }, []);
 
-  // Filter documents
-  const filteredDocuments = useMemo(() => {
+  const normalizeStatus = (status: string | undefined): DocumentStatus => {
+    const s = (status || '').toLowerCase();
+    const map: Record<string, DocumentStatus> = {
+      draft: 'DRAFT',
+      sent: 'SENT',
+      viewed: 'VIEWED',
+      approved: 'APPROVED',
+      rejected: 'REJECTED',
+      pending: 'PENDING',
+      paid: 'PAID',
+      overdue: 'OVERDUE',
+      cancelled: 'CANCELLED',
+    };
+    return map[ s ] || 'DRAFT';
+  };
+
+  const mapInvoiceToUIDoc = (i: any): Invoice => {
+    const subtotal = Array.isArray(i.items) ? i.items.reduce((sum: number, it: any) => sum + (parseFloat(it.amount || 0)), 0) : 0;
+    return {
+      id: i.id,
+      type: 'invoice',
+      number: i.number,
+      date: i.created_at || i.date || new Date().toISOString(),
+      dueDate: i.due_date || new Date().toISOString(),
+      senderId: '1',
+      senderName: 'Escritório Silva & Associados',
+      senderDetails: {
+        name: 'Escritório Silva & Associados',
+        document: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'Brasil',
+      },
+      receiverId: i.client_id || '',
+      receiverName: i.client_name || '',
+      receiverDetails: {
+        name: i.client_name || '',
+        document: '',
+        email: i.client_email || '',
+        phone: i.client_phone || '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'Brasil',
+      },
+      title: i.title,
+      description: i.description || '',
+      items: Array.isArray(i.items) ? i.items : [],
+      subtotal,
+      discount: 0,
+      discountType: 'fixed',
+      fee: 0,
+      feeType: 'fixed',
+      tax: 0,
+      taxType: 'fixed',
+      total: parseFloat(i.amount || subtotal || 0),
+      currency: i.currency || 'BRL',
+      status: normalizeStatus(i.status),
+      paymentStatus: normalizeStatus(i.payment_status) as any,
+      paymentMethod: i.payment_method,
+      paymentDate: i.payment_date,
+      emailSent: !!i.email_sent,
+      emailSentAt: i.email_sent_at,
+      remindersSent: parseInt(i.reminders_sent || 0),
+      lastReminderAt: i.last_reminder_at,
+      templateId: undefined,
+      notes: i.notes || '',
+      tags: Array.isArray(i.tags) ? i.tags : [],
+      attachments: [],
+      createdAt: i.created_at || new Date().toISOString(),
+      updatedAt: i.updated_at || new Date().toISOString(),
+      createdBy: i.created_by || '',
+      lastModifiedBy: i.created_by || '',
+    };
+  };
+
+  const mapEstimateToUIDoc = (e: any): Estimate => {
+    const subtotal = Array.isArray(e.items) ? e.items.reduce((sum: number, it: any) => sum + (parseFloat(it.amount || 0)), 0) : 0;
+    return {
+      id: e.id,
+      type: 'estimate',
+      number: e.number,
+      date: e.date || new Date().toISOString(),
+      dueDate: e.valid_until || e.date || new Date().toISOString(),
+      validUntil: e.valid_until || e.date || new Date().toISOString(),
+      senderId: '1',
+      senderName: 'Escritório Silva & Associados',
+      senderDetails: {
+        name: 'Escritório Silva & Associados',
+        document: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'Brasil',
+      },
+      receiverId: e.client_id || '',
+      receiverName: e.client_name || '',
+      receiverDetails: {
+        name: e.client_name || '',
+        document: '',
+        email: e.client_email || '',
+        phone: e.client_phone || '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'Brasil',
+      },
+      title: e.title,
+      description: e.description || '',
+      items: Array.isArray(e.items) ? e.items : [],
+      subtotal,
+      discount: 0,
+      discountType: 'fixed',
+      fee: 0,
+      feeType: 'fixed',
+      tax: 0,
+      taxType: 'fixed',
+      total: parseFloat(e.amount || subtotal || 0),
+      currency: e.currency || 'BRL',
+      status: normalizeStatus(e.status),
+      convertedToInvoice: !!e.converted_to_invoice,
+      invoiceId: e.invoice_id,
+      templateId: undefined,
+      notes: e.notes || '',
+      tags: Array.isArray(e.tags) ? e.tags : [],
+      attachments: [],
+      createdAt: e.created_at || new Date().toISOString(),
+      updatedAt: e.updated_at || new Date().toISOString(),
+      createdBy: e.created_by || '',
+      lastModifiedBy: e.created_by || '',
+    };
+  };
+
+  const estimates = useMemo<Estimate[]>(() => (Array.isArray(estimatesRaw) ? estimatesRaw.map(mapEstimateToUIDoc) : []), [ estimatesRaw ]);
+  const invoices = useMemo<Invoice[]>(() => (Array.isArray(invoicesRaw) ? invoicesRaw.map(mapInvoiceToUIDoc) : []), [ invoicesRaw ]);
+
+  const allDocuments: (Estimate | Invoice)[] = [ ...estimates, ...invoices ];
+
+  const equalsStatus = (docStatus: any, filter: string) => {
+    if (!filter || filter === 'all') return true;
+    return docStatus === filter || normalizeStatus(docStatus) === normalizeStatus(filter);
+  };
+
+  const filteredDocuments = useMemo<(Estimate | Invoice)[]>(() => {
     let filtered = allDocuments;
 
-    // Filter by tab
     if (activeTab !== 'all') {
       filtered = filtered.filter(doc => doc.type === activeTab);
     }
 
-    // Filter by search
     if (searchTerm) {
       filtered = filtered.filter(doc =>
-        doc.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.receiverName.toLowerCase().includes(searchTerm.toLowerCase())
+        (doc.number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.receiverName || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Filter by status
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(doc => doc.status === statusFilter);
+      filtered = filtered.filter(doc => equalsStatus(doc.status, statusFilter));
     }
 
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [allDocuments, activeTab, searchTerm, statusFilter]);
+  }, [ allDocuments, activeTab, searchTerm, statusFilter ]);
 
-  // Calculate statistics
   const stats: BillingStats = useMemo(() => {
     const totalEstimates = estimates.length;
     const totalInvoices = invoices.length;
 
+    const pendingStatuses: any[] = [ 'PENDING', 'SENT', 'VIEWED', 'Pendente' ];
     const pendingAmount = allDocuments
-      .filter(doc => ['Pendente', 'SENT', 'VIEWED'].includes(doc.status))
-      .reduce((sum, doc) => sum + doc.total, 0);
+      .filter(doc => pendingStatuses.includes(doc.status))
+      .reduce((sum, doc) => sum + (doc.total || 0), 0);
 
     const paidAmount = allDocuments
       .filter(doc => doc.status === 'PAID')
-      .reduce((sum, doc) => sum + doc.total, 0);
+      .reduce((sum, doc) => sum + (doc.total || 0), 0);
 
     const overdueAmount = allDocuments
       .filter(doc => doc.status === 'OVERDUE' ||
-        (new Date(doc.dueDate) < new Date() && !['PAID', 'CANCELLED'].includes(doc.status)))
-      .reduce((sum, doc) => sum + doc.total, 0);
+        (new Date(doc.dueDate) < new Date() && ![ 'PAID', 'CANCELLED' ].includes(doc.status as any))
+      )
+      .reduce((sum, doc) => sum + (doc.total || 0), 0);
 
     const thisMonth = new Date();
-    const thisMonthRevenue = allDocuments
-      .filter(doc => {
-        const docDate = new Date(doc.date);
-        return docDate.getMonth() === thisMonth.getMonth() &&
-               docDate.getFullYear() === thisMonth.getFullYear() &&
-               doc.status === 'PAID';
+    const thisMonthRevenue = invoices
+      .filter(inv => {
+        const d = new Date(inv.date);
+        return d.getMonth() === thisMonth.getMonth() &&
+          d.getFullYear() === thisMonth.getFullYear() &&
+          inv.status === 'PAID';
       })
-      .reduce((sum, doc) => sum + doc.total, 0);
+      .reduce((sum, inv) => sum + (inv.total || 0), 0);
 
     return {
       totalEstimates,
@@ -256,9 +306,9 @@ export function Billing() {
       paidAmount,
       overdueAmount,
       thisMonthRevenue,
-      averagePaymentTime: 15, // Mock value
+      averagePaymentTime: 15,
     };
-  }, [estimates, invoices, allDocuments]);
+  }, [ estimates, invoices, allDocuments ]);
 
   const handleCreateDocument = (type: 'estimate' | 'invoice') => {
     setDocumentType(type);
@@ -266,111 +316,72 @@ export function Billing() {
     setShowDocumentForm(true);
   };
 
-  const handleSubmitDocument = (data: any) => {
-    // CORREÇÃO: Verificar se está editando documento existente ou criando novo
-    const isEditing = !!editingDocument;
-
-    const baseDoc = {
-      ...data,
-      id: isEditing ? editingDocument.id : Date.now().toString(),
-      date: data.date + 'T00:00:00Z',
-      dueDate: data.dueDate + 'T00:00:00Z',
-      senderName: 'Escritório Silva & Associados',
-      senderDetails: mockCompanyDetails,
-      receiverName: 'Cliente Selecionado',
-      receiverDetails: mockClientDetails,
-      subtotal: data.items.reduce((sum: number, item: BillingItem) => sum + (item.amount || 0), 0),
-      total: (() => {
-        const subtotal = data.items.reduce((sum: number, item: BillingItem) => sum + (item.amount || 0), 0);
-        const discount = data.discount || 0;
-        const fee = data.fee || 0;
-        const tax = data.tax || 0;
-        return subtotal - discount + fee + tax;
-      })(),
-      status: isEditing ? editingDocument.status : 'DRAFT' as DocumentStatus,
-      attachments: isEditing ? editingDocument.attachments : [],
-      createdAt: isEditing ? editingDocument.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: isEditing ? editingDocument.createdBy : 'Dr. Silva',
-      lastModifiedBy: 'Dr. Silva',
-    };
+  const handleSubmitDocument = async (data: any, isEditing?: boolean) => {
+    const editing = typeof isEditing === 'boolean' ? isEditing : !!editingDocument;
 
     if (documentType === 'estimate') {
-      const estimate: Estimate = {
-        ...baseDoc,
-        type: 'estimate',
-        number: isEditing ? editingDocument.number : `EST-${(estimates.length + 1).toString().padStart(3, '0')}`,
-        validUntil: data.dueDate + 'T00:00:00Z',
-        convertedToInvoice: isEditing ? editingDocument.convertedToInvoice : false,
-      };
+      const selectedClient = Array.isArray(clients) ? (clients as any[]).find((c: any) => c.id === data.receiverId) : undefined;
+      const receiverName = selectedClient?.name || data.receiverName || '';
+      const payload = {
+        number: data.number || `EST-${Date.now()}`,
+        title: data.title,
+        description: data.description,
+        clientId: data.receiverId || undefined,
+        clientName: receiverName,
+        clientEmail: data.receiverDetails?.email || undefined,
+        clientPhone: data.receiverDetails?.phone || undefined,
+        amount: data.items?.reduce((sum: number, it: any) => sum + (it.amount || 0), 0) || 0,
+        currency: data.currency,
+        status: (data.status || 'DRAFT').toLowerCase(),
+        date: data.date,
+        validUntil: data.validUntil || data.dueDate,
+        items: data.items || [],
+        tags: data.tags || [],
+        notes: data.notes || ''
+      } as any;
 
-      if (isEditing) {
-        // CORREÇÃO: Atualizar documento existente ao invés de criar novo
-        setEstimates(estimates.map(est => est.id === estimate.id ? estimate : est));
+      if (editing && editingDocument?.id) {
+        await updateEstimate(editingDocument.id, payload);
       } else {
-        setEstimates([...estimates, estimate]);
-
-        // NOVIDADE: Enviar notificação apenas quando novo orçamento for criado
-        console.log("📢 NOTIFICAÇÃO ENVIADA: Novo orçamento criado", {
-          type: 'info',
-          title: 'Novo Orçamento Criado',
-          message: `Orçamento ${estimate.number} foi criado para ${estimate.receiverName}`,
-          category: 'billing',
-          createdBy: 'Usuário Atual',
-          documentData: {
-            id: estimate.id,
-            number: estimate.number,
-            type: 'estimate',
-            client: estimate.receiverName,
-            amount: estimate.total
-          }
-        });
+        await createEstimate(payload);
       }
-    } else if (documentType === 'invoice') {
-      const invoice: Invoice = {
-        ...baseDoc,
-        type: 'invoice',
-        number: isEditing ? editingDocument.number : `INV-${(invoices.length + 1).toString().padStart(3, '0')}`,
-        paymentStatus: isEditing ? editingDocument.paymentStatus : 'Pendente',
-        emailSent: isEditing ? editingDocument.emailSent : false,
-        remindersSent: isEditing ? editingDocument.remindersSent : 0,
-      };
+    } else {
+      const selectedClient = Array.isArray(clients) ? (clients as any[]).find((c: any) => c.id === data.receiverId) : undefined;
+      const receiverName = selectedClient?.name || data.receiverName || '';
+      const payload = {
+        number: data.number || `INV-${Date.now()}`,
+        title: data.title,
+        description: data.description,
+        clientId: data.receiverId || undefined,
+        clientName: receiverName,
+        clientEmail: data.receiverDetails?.email || undefined,
+        clientPhone: data.receiverDetails?.phone || undefined,
+        amount: data.items?.reduce((sum: number, it: any) => sum + (it.amount || 0), 0) || 0,
+        currency: data.currency,
+        status: (data.status || 'DRAFT').toLowerCase(),
+        dueDate: data.dueDate,
+        items: data.items || [],
+        tags: data.tags || [],
+        notes: data.notes || ''
+      } as any;
 
-      if (isEditing) {
-        // CORREÇÃO: Atualizar documento existente ao invés de criar novo
-        setInvoices(invoices.map(inv => inv.id === invoice.id ? invoice : inv));
+      if (editing && editingDocument?.id) {
+        await updateInvoice(editingDocument.id, payload);
       } else {
-        setInvoices([...invoices, invoice]);
-
-        // NOVIDADE: Enviar notificação apenas quando nova fatura for criada
-        console.log("📢 NOTIFICAÇÃO ENVIADA: Nova fatura criada", {
-          type: 'warning',
-          title: 'Nova Fatura Criada',
-          message: `Fatura ${invoice.number} foi criada para ${invoice.receiverName} - Valor: R$ ${invoice.total.toFixed(2)}`,
-          category: 'billing',
-          createdBy: 'Usuário Atual',
-          documentData: {
-            id: invoice.id,
-            number: invoice.number,
-            type: 'invoice',
-            client: invoice.receiverName,
-            amount: invoice.total,
-            dueDate: invoice.dueDate
-          }
-        });
+        await createInvoice(payload);
       }
     }
 
-    // CORREÇÃO: Limpar estado de edição após salvar
     setEditingDocument(undefined);
     setShowDocumentForm(false);
+    await Promise.all([ loadInvoices(), loadEstimates() ]);
   };
 
   const handleSelectDoc = (docId: string) => {
     setSelectedDocs(prev =>
       prev.includes(docId)
         ? prev.filter(id => id !== docId)
-        : [...prev, docId]
+        : [ ...prev, docId ]
     );
   };
 
@@ -384,9 +395,16 @@ export function Billing() {
     setShowDocumentForm(true);
   };
 
-  const handleDeleteDoc = (docId: string) => {
-    setEstimates(estimates.filter(doc => doc.id !== docId));
-    setInvoices(invoices.filter(doc => doc.id !== docId));
+  const handleDeleteDoc = async (docId: string) => {
+    const doc = allDocuments.find(d => d.id === docId);
+    if (!doc) return;
+    if (doc.type === 'invoice') {
+      await deleteInvoice(docId);
+      await loadInvoices();
+    } else {
+      await deleteEstimate(docId);
+      await loadEstimates();
+    }
     setSelectedDocs(selectedDocs.filter(id => id !== docId));
   };
 
@@ -402,31 +420,21 @@ export function Billing() {
     setShowDocumentForm(true);
   };
 
-  const handleSendDoc = (document: any) => {
-    // Update document status to SENT
-    const updateDocumentStatus = (docs: any[], docId: string, newStatus: DocumentStatus) => {
-      return docs.map(doc =>
-        doc.id === docId
-          ? { ...doc, status: newStatus, sentAt: new Date().toISOString() }
-          : doc
-      );
-    };
-
-    if (document.type === 'estimate') {
-      setEstimates(prev => updateDocumentStatus(prev, document.id, 'SENT'));
-    } else if (document.type === 'invoice') {
-      setInvoices(prev => updateDocumentStatus(prev, document.id, 'SENT'));
+  const handleSendDoc = async (document: any) => {
+    try {
+      if (document.type === 'estimate') {
+        await updateEstimate(document.id, { status: 'sent' } as any);
+        await loadEstimates();
+      } else if (document.type === 'invoice') {
+        await updateInvoice(document.id, { status: 'sent' } as any);
+        await loadInvoices();
+      }
+      alert(`✅ ${document.type === 'estimate' ? 'Orçamento' : 'Fatura'} enviado com sucesso para ${document.receiverDetails?.email || document.clientEmail || ''}!`);
+    } catch (e) {
+      alert('Erro ao enviar documento.');
     }
-
-    alert(`✅ ${document.type === 'estimate' ? 'Orçamento' : 'Fatura'} enviado com sucesso para ${document.clientEmail}!`);
   };
 
-  /**
-   * Função para download de PDF dos documentos de cobrança
-   * Gera um documento HTML estilizado e faz o download
-   *
-   * @param document - Documento completo com dados para o PDF
-   */
   const handleDownloadDoc = (document: any) => {
     try {
       console.log('Iniciando download de PDF:', document);
@@ -435,7 +443,6 @@ export function Billing() {
       const total = document.items.reduce((sum: number, item: any) =>
         sum + (item.quantity * item.rate * (1 + item.tax / 100)), 0);
 
-      // Criar conteúdo HTML completo para o documento
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -486,9 +493,9 @@ export function Billing() {
               text-transform: uppercase;
               letter-spacing: 0.5px;
               ${document.status === 'PAID' ? 'background: #d1fae5; color: #065f46;' :
-                document.status === 'OVERDUE' ? 'background: #fee2e2; color: #991b1b;' :
-                document.status === 'SENT' ? 'background: #dbeafe; color: #1e40af;' :
-                'background: #fef3c7; color: #92400e;'}
+          document.status === 'OVERDUE' ? 'background: #fee2e2; color: #991b1b;' :
+            document.status === 'SENT' ? 'background: #dbeafe; color: #1e40af;' :
+              'background: #fef3c7; color: #92400e;'}
             }
             .details-container {
               display: flex;
@@ -624,13 +631,12 @@ export function Billing() {
           <div class="document-title">
             <span>
               ${document.type === 'estimate' ? '📋 ORÇAMENTO' :
-                document.type === '📄 FATURA'} Nº ${document.number}
+          document.type === '📄 FATURA'} Nº ${document.number}
             </span>
-            <span class="status-badge">${
-              document.status === 'PAID' ? 'PAGO' :
-              document.status === 'OVERDUE' ? 'VENCIDO' :
-              document.status === 'SENT' ? 'ENVIADO' : 'RASCUNHO'
-            }</span>
+            <span class="status-badge">${document.status === 'PAID' ? 'PAGO' :
+          document.status === 'OVERDUE' ? 'VENCIDO' :
+            document.status === 'SENT' ? 'ENVIADO' : 'RASCUNHO'
+        }</span>
           </div>
 
           <div class="details-container">
@@ -748,27 +754,17 @@ export function Billing() {
         </html>
       `;
 
-      // Criar Blob com o conteúdo HTML
-      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-
-      // Criar URL para download
+      const blob = new Blob([ htmlContent ], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-
-      // Criar link temporário para download
       const link = document.createElement('a');
       link.href = url;
-      link.download = filename.replace('.pdf', '.html'); // HTML para visualizar no navegador
+      link.download = filename.replace('.pdf', '.html');
       link.style.display = 'none';
-
-      // Adicionar ao DOM, clicar e remover
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      // Limpar URL
       URL.revokeObjectURL(url);
 
-      // Mostrar notificação de sucesso elegante
       const notification = document.createElement('div');
       notification.style.cssText = `
         position: fixed;
@@ -793,7 +789,7 @@ export function Billing() {
             <div style="font-weight: 600; margin-bottom: 4px;">Documento baixado!</div>
             <div style="opacity: 0.9; font-size: 13px;">
               ${document.type === 'estimate' ? 'Orçamento' :
-                document.type === 'invoice' ? 'Fatura' : 'Fatura'} ${document.number}
+          document.type === 'invoice' ? 'Fatura' : 'Fatura'} ${document.number}
             </div>
           </div>
         </div>
@@ -817,7 +813,6 @@ export function Billing() {
     } catch (error) {
       console.error('Erro ao fazer download do documento:', error);
 
-      // Mostrar erro com estilo
       const errorNotification = document.createElement('div');
       errorNotification.style.cssText = `
         position: fixed;
@@ -851,25 +846,53 @@ export function Billing() {
     }
   };
 
-  const handleDuplicateDoc = (document: any) => {
-    const newDocument = {
-      ...document,
-      id: Date.now().toString(),
-      number: `${document.number}-COPY`,
-      status: 'DRAFT' as DocumentStatus,
-      issueDate: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  const handleDuplicateDoc = async (document: any) => {
+    try {
+      if (document.type === 'estimate') {
+        const payload = {
+          number: `${document.number}-COPY`,
+          title: document.title,
+          description: document.description,
+          clientId: document.receiverId || undefined,
+          clientName: document.receiverName || '',
+          clientEmail: document.receiverDetails?.email || undefined,
+          clientPhone: document.receiverDetails?.phone || undefined,
+          amount: document.items?.reduce((sum: number, it: any) => sum + (it.amount || (it.rate * it.quantity) || 0), 0) || document.total || 0,
+          currency: document.currency || 'BRL',
+          status: 'draft',
+          date: new Date().toISOString(),
+          validUntil: document.validUntil || document.dueDate,
+          items: document.items || [],
+          tags: document.tags || [],
+          notes: document.notes || ''
+        } as any;
+        await createEstimate(payload);
+        await loadEstimates();
+      } else if (document.type === 'invoice') {
+        const payload = {
+          number: `${document.number}-COPY`,
+          title: document.title,
+          description: document.description,
+          clientId: document.receiverId || undefined,
+          clientName: document.receiverName || '',
+          clientEmail: document.receiverDetails?.email || undefined,
+          clientPhone: document.receiverDetails?.phone || undefined,
+          amount: document.items?.reduce((sum: number, it: any) => sum + (it.amount || (it.rate * it.quantity) || 0), 0) || document.total || 0,
+          currency: document.currency || 'BRL',
+          status: 'draft',
+          dueDate: document.dueDate,
+          items: document.items || [],
+          tags: document.tags || [],
+          notes: document.notes || ''
+        } as any;
+        await createInvoice(payload);
+        await loadInvoices();
+      }
 
-    if (document.type === 'estimate') {
-      setEstimates(prev => [...prev, newDocument]);
-    } else if (document.type === 'invoice') {
-      setInvoices(prev => [...prev, newDocument]);
+      alert(`📋 ${document.type === 'estimate' ? 'Orçamento' : document.type === 'invoice' ? 'Fatura' : 'Fatura'} duplicado com sucesso!`);
+    } catch (e) {
+      alert('Erro ao duplicar documento.');
     }
-
-    alert(`📋 ${document.type === 'estimate' ? 'Orçamento' :
-           document.type === 'invoice' ? 'Fatura' : 'Fatura'} duplicado com sucesso!`);
   };
 
   const formatCurrency = (value: number) => {
@@ -881,28 +904,41 @@ export function Billing() {
 
   const handleSendEmail = async (emailData: any) => {
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer re_BLdUxfAX_Au4vh5xLAPcthy8bmCgXCcXr',
-          'Content-Type': 'application/json',
+      const docs = allDocuments.filter(doc => selectedDocs.includes(doc.id));
+
+      // Envia email via backend (Resend)
+      await apiService.sendEmail(emailData);
+
+      // Opcional: log de notificação no sistema
+      await apiService.createNotification({
+        type: 'billing_email',
+        title: 'Envio de Documentos de Cobrança',
+        message: `Envio de ${docs.length} documento(s) para ${Array.isArray(emailData.to) ? emailData.to.join(', ') : emailData.to}`,
+        payload: {
+          to: emailData.to,
+          subject: emailData.subject,
+          docIds: docs.map(d => d.id),
         },
-        body: JSON.stringify(emailData),
+        link: '/billing',
       });
 
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.status}`);
+      // Atualiza status dos documentos
+      for (const d of docs) {
+        if (d.type === 'invoice') {
+          await updateInvoice(d.id, { status: 'sent', emailSent: true } as any);
+        } else {
+          await updateEstimate(d.id, { status: 'sent', emailSent: true } as any);
+        }
       }
 
-      const result = await response.json();
-      console.log('Email enviado com sucesso:', result);
-
-      return result;
+      await Promise.all([ loadInvoices(), loadEstimates() ]);
+      return { ok: true };
     } catch (error) {
       console.error('Erro ao enviar email:', error);
       throw error;
     }
   };
+
 
   const handleOpenEmailModal = () => {
     if (selectedDocs.length === 0) {
@@ -954,7 +990,6 @@ export function Billing() {
           </DropdownMenu>
         </div>
 
-        {/* Statistics Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1009,7 +1044,6 @@ export function Billing() {
           </Card>
         </div>
 
-        {/* Filters */}
         <div className="flex items-center space-x-4">
           <div className="flex-1 max-w-md">
             <div className="relative">
@@ -1047,7 +1081,6 @@ export function Billing() {
           </Button>
         </div>
 
-        {/* Documents Table with Tabs */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -1086,7 +1119,6 @@ export function Billing() {
           </CardContent>
         </Card>
 
-        {/* Document Form Modal */}
         <DocumentForm
           open={showDocumentForm}
           onOpenChange={setShowDocumentForm}
@@ -1096,7 +1128,6 @@ export function Billing() {
           type={documentType}
         />
 
-        {/* Document View Dialog */}
         <DocumentViewDialog
           open={showDocumentView}
           onOpenChange={setShowDocumentView}
@@ -1107,12 +1138,13 @@ export function Billing() {
           onDuplicate={handleDuplicateDoc}
         />
 
-        {/* Email Send Modal */}
         <EmailSendModal
           open={showEmailModal}
           onOpenChange={setShowEmailModal}
           documents={allDocuments.filter(doc => selectedDocs.includes(doc.id)) || []}
-          onSendEmail={handleSendEmail}
+          onSendEmail={async (data) => {
+            handleSendEmail(data)
+          }}
         />
       </div>
     </DashboardLayout>

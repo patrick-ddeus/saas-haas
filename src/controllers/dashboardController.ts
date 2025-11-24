@@ -159,7 +159,7 @@ export class DashboardController {
       currentMonth.setDate(1);
 
       const newThisMonth = clients.clients.filter(c =>
-        new Date(c.created_at) >= currentMonth
+        new Date(c.createdAt) >= currentMonth
       ).length;
 
       const metrics = {

@@ -6,7 +6,7 @@
  * baseada no layout fornecido na imagem de referência.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/Layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -40,32 +40,30 @@ import {
   Eye,
 } from "lucide-react";
 import { Publication, PublicationStatus } from "@/types/publications";
+import { apiService } from "@/services/apiService";
 import { TaskForm } from "@/components/Tasks/TaskForm";
 
-/**
- * DADOS MOCK PARA PUBLICAÇÃO DETALHADA
- * ===================================
- *
- * BACKEND: Esta publicação virá da API GET /api/publicacoes/{id}
- * Incluindo todas as tarefas vinculadas e histórico de atribuições
- */
-const mockPublications: Publication[] = [
-  {
-    id: "1",
-    dataPublicacao: new Date("2024-01-15"),
-    processo: "0001193-84.2013.5.02.0002",
-    diario: "Diário do Tribunal Regional do Trabalho de São Paulo (2ª Região) - Eletrônico - Edição 2727",
-    varaComarca: "2ª Vara do Trabalho de São Paulo - Comarca: CAPITAL",
-    nomePesquisado: "JOÃO BATISTA XAVIER",
-    status: "pendente", // Status será atualizado dinamicamente
-    conteudo: "Processo Nº RTOrd-0001193-84.2013.5.02.0002 REQUERANTE JOÃO BATISTA XAVIER ADVOGADO SUELI SZNIFER CATTANIO/AB 000000SC) REQUERIDO LUAN FRONZA REQUERIDO CONSTRUTORA BI Intimação(s)/Citação(s) - JOÃO CARLOS Justiça do Trabalho - 2 Reqfa 2 Vara do Trabalho de So Paulo Avenida Marginal da Sa Vicente, 235, Vrza da Barra Funda, SAO PAULO - SP - CEP 0100-001 - v40028@trtsp.jus.br Destinatário: JOÃO CARLOS INTIMAÇÃO - Processo: Ple - Processo: 0001193- 84.2013.5.02.0002 - Processo Ple Classe: AO TRABALHISTA",
-    responsavel: "Dr. Advogado Silva",
-    urgencia: "alta",
-    numeroProcesso: "0001193-84.2013.5.02.0002",
-    cliente: "João Batista Xavier",
-    tarefasVinculadas: [] // Tarefas vinculadas serão carregadas da API
-  },
-];
+function mapPublication(record: any): Publication {
+  return {
+    id: record.id,
+    dataPublicacao: new Date(record.publication_date),
+    processo: record.process_number || '',
+    diario: record.diario || '',
+    varaComarca: record.vara_comarca || '',
+    nomePesquisado: record.nome_pesquisado || '',
+    status: (record.status || 'nova') as PublicationStatus,
+    conteudo: record.content || '',
+    observacoes: record.observacoes || '',
+    responsavel: record.responsavel || undefined,
+    numeroProcesso: record.process_number || undefined,
+    cliente: undefined,
+    urgencia: (record.urgencia || 'media') as any,
+    tags: Array.isArray(record.tags) ? record.tags : [],
+    atribuidoPara: record.atribuida_para_id ? { id: record.atribuida_para_id, nome: record.atribuida_para_nome || '', email: '', cargo: '', ativo: true } : undefined,
+    dataAtribuicao: record.data_atribuicao ? new Date(record.data_atribuicao) : undefined,
+    tarefasVinculadas: Array.isArray(record.tarefas_vinculadas) ? record.tarefas_vinculadas : [],
+  };
+}
 
 const getStatusConfig = (status: PublicationStatus) => {
   const statusConfigs = {
@@ -104,9 +102,20 @@ export function PublicationDetail() {
   const navigate = useNavigate();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [publicationTasks, setPublicationTasks] = useState<any[]>([]);
+  const [publication, setPublication] = useState<Publication | null>(null);
 
-  // Buscar publicação pelo ID (mock)
-  const publication = mockPublications.find(p => p.id === id);
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await apiService.getPublication(id!);
+        const rec = data.publication || data;
+        setPublication(mapPublication(rec));
+      } catch (e) {
+        setPublication(null);
+      }
+    }
+    if (id) load();
+  }, [id]);
 
   if (!publication) {
     return (
@@ -130,18 +139,18 @@ export function PublicationDetail() {
     window.print();
   };
 
-  const handleDiscard = () => {
-    // Implementar lógica de descarte
-    console.log("Descartando publicação:", publication.id);
-    // Redirecionar para lista de publicações
-    navigate("/publicacoes");
+  const handleDiscard = async () => {
+    try {
+      await apiService.updatePublication(publication.id, { status: 'descartada' });
+      navigate("/publicacoes");
+    } catch {}
   };
 
-  const handleComplete = () => {
-    // Implementar lógica de conclusão
-    console.log("Concluindo publicação:", publication.id);
-    // Redirecionar para lista de publicações
-    navigate("/publicacoes");
+  const handleComplete = async () => {
+    try {
+      await apiService.updatePublication(publication.id, { status: 'finalizada' });
+      navigate("/publicacoes");
+    } catch {}
   };
 
   /**
@@ -158,20 +167,32 @@ export function PublicationDetail() {
     setShowTaskForm(true);
   };
 
-  const handleTaskSubmit = (taskData: any) => {
-    // BACKEND: Criar tarefa vinculada à publicação
-    console.log("Criando tarefa vinculada à publicação:", publication.id, taskData);
-
-    // BACKEND: Se tarefa tem responsável, mudar status da publicação para 'atribuida'
-    if (taskData.assignedTo) {
-      console.log("Mudando status da publicação para ATRIBUIDA - responsável:", taskData.assignedTo);
-      // PATCH /api/publicacoes/{id}/status { status: 'atribuida', responsavel: taskData.assignedTo }
+  const handleTaskSubmit = async (taskData: any) => {
+    try {
+      const resp = await apiService.createTask({
+        title: taskData.title,
+        description: taskData.description,
+        assignedTo: taskData.assignedTo,
+        priority: taskData.priority,
+        startDate: taskData.startDate,
+        endDate: taskData.endDate,
+        tags: taskData.tags,
+        notes: `Vinculada à publicação ${publication.id}`,
+      });
+      const taskId = resp?.task?.id || resp?.id;
+      const tarefas = [...(publication.tarefasVinculadas || []), taskId].filter(Boolean);
+      await apiService.updatePublication(publication.id, {
+        status: 'atribuida',
+        atribuidaParaId: taskData.assignedTo,
+        atribuidaParaNome: taskData.assignedToName || '',
+        dataAtribuicao: new Date().toISOString(),
+        tarefasVinculadas: tarefas,
+      });
+      setShowTaskForm(false);
+      navigate('/tarefas');
+    } catch (e) {
+      setShowTaskForm(false);
     }
-
-    // BACKEND: Enviar notificação para o responsável
-    console.log("Enviando notificação para:", taskData.assignedTo);
-
-    setShowTaskForm(false);
   };
 
 

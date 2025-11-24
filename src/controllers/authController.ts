@@ -22,9 +22,9 @@ const refreshSchema = z.object({
 export class AuthController {
   async register(req: Request, res: Response) {
     try {
-      console.log('Registration attempt:', { email: req.body.email, name: req.body.name });
 
       const validatedData = registerSchema.parse(req.body);
+      console.log("🚀 ~ AuthController ~ register ~ validatedData:", validatedData)
 
       const { user, tokens, isNewTenant } = await authService.registerUser(
         validatedData.email,

@@ -11,12 +11,17 @@ import projectsRoutes from './routes/projects';
 import tasksRoutes from './routes/tasks';
 import transactionsRoutes from './routes/transactions';
 import invoicesRoutes from './routes/invoices';
+import estimatesRoutes from './routes/estimates';
+import publicationsRoutes from './routes/publications';
 import settingsRoutes from './routes/settings';
 import adminRoutes from './routes/admin';
-import adminAuthRoutes from './routes/adminAuth';
-import notificationsRoutes from './routes/notifications';
-import publicationsRoutes from './routes/publications';
 import adminApiConfigRoutes from './routes/adminApiConfig';
+import notificationsRoutes from './routes/notifications';
+import adminAuthRoutes from './routes/adminAuth';
+import usersRoutes from './routes/users';
+import emailsRoutes from './routes/emails';
+import stripeRoutes from './routes/stripe';
+import { stripeController } from './controllers/stripeController';
 
 dotenv.config({
   path: '../.env',
@@ -30,6 +35,7 @@ export function createApp() {
     origin: true,
     credentials: true
   }));
+  app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => stripeController.webhook(req, res));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -53,6 +59,14 @@ export function createApp() {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/publications', publicationsRoutes);
+  app.use('/api/stripe', stripeRoutes);
+
+  app.use('/api/estimates', estimatesRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/notifications', notificationsRoutes);
+  app.use('/api/publications', publicationsRoutes);
+  app.use('/api/users', usersRoutes);
+  app.use('/api/emails', emailsRoutes);
 
   // Debug route registration
   app._router.stack.forEach((middleware: any) => {

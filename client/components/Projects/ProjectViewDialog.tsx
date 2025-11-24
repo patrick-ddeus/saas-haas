@@ -34,11 +34,11 @@ interface ProjectViewDialogProps {
   onEdit?: (project: Project) => void;
 }
 
-export function ProjectViewDialog({ 
-  open, 
-  onOpenChange, 
-  project, 
-  onEdit 
+export function ProjectViewDialog({
+  open,
+  onOpenChange,
+  project,
+  onEdit
 }: ProjectViewDialogProps) {
   if (!project) return null;
 
@@ -48,7 +48,7 @@ export function ProjectViewDialog({
       USD: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }),
       EUR: new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }),
     };
-    return formatters[currency as keyof typeof formatters]?.format(value) || `${currency} ${value}`;
+    return formatters[ currency as keyof typeof formatters ]?.format(value) || `${currency} ${value}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -70,9 +70,9 @@ export function ProjectViewDialog({
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[ i ];
   };
 
   const getStatusLabel = (status: string) => {
@@ -85,7 +85,7 @@ export function ProjectViewDialog({
       cancelado: 'Cancelado',
       arquivado: 'Arquivado',
     };
-    return statusMap[status as keyof typeof statusMap] || status;
+    return statusMap[ status as keyof typeof statusMap ] || status;
   };
 
   const getStatusColor = (status: string) => {
@@ -98,7 +98,7 @@ export function ProjectViewDialog({
       cancelado: 'bg-red-100 text-red-800',
       arquivado: 'bg-gray-100 text-gray-800',
     };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[ status as keyof typeof colors ] || 'bg-gray-100 text-gray-800';
   };
 
   const getPriorityLabel = (priority: string) => {
@@ -108,7 +108,7 @@ export function ProjectViewDialog({
       high: 'Alta',
       urgent: 'Urgente',
     };
-    return priorityMap[priority as keyof typeof priorityMap] || priority;
+    return priorityMap[ priority as keyof typeof priorityMap ] || priority;
   };
 
   const getPriorityColor = (priority: string) => {
@@ -118,11 +118,11 @@ export function ProjectViewDialog({
       high: 'bg-orange-100 text-orange-800',
       urgent: 'bg-red-100 text-red-800',
     };
-    return colors[priority as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[ priority as keyof typeof colors ] || 'bg-gray-100 text-gray-800';
   };
 
-  const isOverdue = new Date(project.dueDate) < new Date() && 
-                   !['concluido', 'cancelado', 'arquivado'].includes(project.status);
+  const isOverdue = new Date(project.due_date) < new Date() &&
+    ![ 'concluido', 'cancelado', 'arquivado' ].includes(project.status);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,7 +136,7 @@ export function ProjectViewDialog({
                 <DialogDescription className="space-y-2">
                   <span className="flex items-center space-x-2">
                     <User className="h-4 w-4" />
-                    <span>{project.clientName}</span>
+                    <span>{project.client_name}</span>
                     {project.organization && (
                       <>
                         <span>•</span>
@@ -146,9 +146,9 @@ export function ProjectViewDialog({
                     )}
                   </span>
                   {/* IMPLEMENTAÇÃO: Mostrar colaborador que criou o projeto */}
-                  {project.createdBy && (
-                    <span className="flex items-center space-x-2 text-xs text-muted-foreground block mt-1">
-                      Criado por: {project.createdBy}
+                  {project.created_by && (
+                    <span className="flex items-center space-x-2 text-xs text-muted-foreground mt-1">
+                      Criado por: {project.created_by}
                     </span>
                   )}
                 </DialogDescription>
@@ -197,21 +197,21 @@ export function ProjectViewDialog({
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Data de Início:</span>
-                  <span>{formatDate(project.startDate)}</span>
+                  <span>{formatDate(project.start_date)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Prazo:</span>
                   <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                    {formatDate(project.dueDate)}
+                    {formatDate(project.due_date)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Criado em:</span>
-                  <span>{formatDate(project.createdAt)}</span>
+                  <span>{formatDate(project.created_at)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Atualizado em:</span>
-                  <span>{formatDate(project.updatedAt)}</span>
+                  <span>{formatDate(project.updated_at)}</span>
                 </div>
               </div>
             </div>
@@ -241,14 +241,14 @@ export function ProjectViewDialog({
           <Separator />
 
           {/* Equipe Atribuída */}
-          {project.assignedTo && Array.isArray(project.assignedTo) && project.assignedTo.length > 0 && (
+          {project.assigned_to && Array.isArray(project.assigned_to) && project.assigned_to.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold flex items-center mb-3">
                 <Users className="h-5 w-5 mr-2" />
                 Equipe Atribuída
               </h3>
               <div className="flex flex-wrap gap-2">
-                {project.assignedTo.map((member) => (
+                {project.assigned_to.map((member) => (
                   <Badge key={member} variant="outline">
                     {member}
                   </Badge>
@@ -377,19 +377,17 @@ export function ProjectViewDialog({
                   {project.files.map((file, index) => (
                     <div key={file.id || index} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          file.type?.includes('pdf') ? 'bg-red-100' :
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${file.type?.includes('pdf') ? 'bg-red-100' :
                           file.type?.includes('image') ? 'bg-blue-100' : 'bg-gray-100'
-                        }`}>
-                          <FileText className={`h-5 w-5 ${
-                            file.type?.includes('pdf') ? 'text-red-600' :
+                          }`}>
+                          <FileText className={`h-5 w-5 ${file.type?.includes('pdf') ? 'text-red-600' :
                             file.type?.includes('image') ? 'text-blue-600' : 'text-gray-600'
-                          }`} />
+                            }`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{file.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {file.size && formatFileSize(file.size)} • {file.type?.split('/')[1]?.toUpperCase() || 'Arquivo'}
+                            {file.size && formatFileSize(file.size)} • {file.type?.split('/')[ 1 ]?.toUpperCase() || 'Arquivo'}
                           </p>
                           {file.uploadedAt && (
                             <p className="text-xs text-muted-foreground">

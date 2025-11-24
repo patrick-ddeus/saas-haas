@@ -1,36 +1,37 @@
-
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
 async function migrateExistingTenants() {
   try {
-    console.log('🔄 Starting migration of existing tenants...');
+    console.log("🔄 Starting migration of existing tenants...");
 
     // Get all existing tenants
     const tenants = await prisma.tenant.findMany({
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: "asc" },
     });
 
     console.log(`Found ${tenants.length} tenants to migrate`);
 
     for (const tenant of tenants) {
       console.log(`\n📋 Processing tenant: ${tenant.name} (${tenant.id})`);
-      
+
       try {
         // Check if schema name needs normalization
         let normalizedSchemaName = tenant.schemaName;
-        
-        if (!normalizedSchemaName || normalizedSchemaName.includes('-')) {
+
+        if (!normalizedSchemaName || normalizedSchemaName.includes("-")) {
           // Generate new normalized schema name
-          normalizedSchemaName = `tenant_${tenant.id.replace(/-/g, '')}`;
-          
-          console.log(`  📝 Updating schema name from "${tenant.schemaName}" to "${normalizedSchemaName}"`);
-          
+          normalizedSchemaName = `tenant_${tenant.id.replace(/-/g, "")}`;
+
+          console.log(
+            `  📝 Updating schema name from "${tenant.schemaName}" to "${normalizedSchemaName}"`,
+          );
+
           // Update tenant record with normalized schema name
           await prisma.tenant.update({
             where: { id: tenant.id },
-            data: { schemaName: normalizedSchemaName }
+            data: { schemaName: normalizedSchemaName },
           });
         }
 
@@ -41,37 +42,34 @@ async function migrateExistingTenants() {
             WHERE schema_name = $1
           ) as schema_exists
         `;
-        
-        const schemaCheckResult = await prisma.$queryRawUnsafe(schemaCheckQuery, normalizedSchemaName);
+
+        const schemaCheckResult = await prisma.$queryRawUnsafe(
+          schemaCheckQuery,
+          normalizedSchemaName,
+        );
         const schemaExists = schemaCheckResult?.[0]?.schema_exists;
 
         if (!schemaExists) {
-          console.log(`  🗄️  Creating schema: ${normalizedSchemaName}`);
           await createTenantSchemaWithTables(normalizedSchemaName);
-          console.log(`  ✅ Schema created successfully`);
         } else {
-          console.log(`  ✅ Schema already exists: ${normalizedSchemaName}`);
-          
           // Validate and create missing tables
           await validateAndCreateMissingTables(normalizedSchemaName);
         }
 
         // Add some sample data if tables are empty
         await ensureSampleData(normalizedSchemaName);
-
       } catch (error) {
         console.error(`  ❌ Error processing tenant ${tenant.name}:`, error);
         continue; // Continue with next tenant
       }
     }
 
-    console.log('\n🎉 Migration completed successfully!');
-    
+    console.log("\n🎉 Migration completed successfully!");
+
     // Generate summary report
     await generateMigrationReport();
-
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error("❌ Migration failed:", error);
     throw error;
   } finally {
     await prisma.$disconnect();
@@ -81,7 +79,9 @@ async function migrateExistingTenants() {
 async function createTenantSchemaWithTables(schemaName) {
   try {
     // Create schema
-    await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+    await prisma.$executeRawUnsafe(
+      `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`,
+    );
 
     // Create tables individually to avoid multiple commands error
     const tableStatements = [
@@ -223,7 +223,7 @@ async function createTenantSchemaWithTables(schemaName) {
         created_by VARCHAR(255),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
-      )`
+      )`,
     ];
 
     // Execute table creation statements individually
@@ -247,7 +247,7 @@ async function createTenantSchemaWithTables(schemaName) {
       `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_publications_status" ON "${schemaName}".publications(status)`,
       `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_publications_active" ON "${schemaName}".publications(is_active)`,
       `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_type" ON "${schemaName}".categories(type)`,
-      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_active" ON "${schemaName}".categories(is_active)`
+      `CREATE INDEX IF NOT EXISTS "idx_${schemaName}_categories_active" ON "${schemaName}".categories(is_active)`,
     ];
 
     // Execute index creation statements individually
@@ -256,7 +256,6 @@ async function createTenantSchemaWithTables(schemaName) {
     }
 
     console.log(`    ✅ All tables created in schema: ${schemaName}`);
-
   } catch (error) {
     console.error(`    ❌ Error creating schema ${schemaName}:`, error);
     throw error;
@@ -266,8 +265,13 @@ async function createTenantSchemaWithTables(schemaName) {
 async function validateAndCreateMissingTables(schemaName) {
   try {
     const requiredTables = [
-      'clients', 'projects', 'tasks', 'transactions', 
-      'invoices', 'publications', 'categories'
+      "clients",
+      "projects",
+      "tasks",
+      "transactions",
+      "invoices",
+      "publications",
+      "categories",
     ];
 
     // Check which tables exist
@@ -276,23 +280,27 @@ async function validateAndCreateMissingTables(schemaName) {
       FROM information_schema.tables 
       WHERE table_schema = $1
     `;
-    
-    const existingTables = await prisma.$queryRawUnsafe(tablesQuery, schemaName);
-    const existingTableNames = existingTables.map(t => t.table_name);
-    
-    const missingTables = requiredTables.filter(table => 
-      !existingTableNames.includes(table)
+
+    const existingTables = await prisma.$queryRawUnsafe(
+      tablesQuery,
+      schemaName,
+    );
+    const existingTableNames = existingTables.map((t) => t.table_name);
+
+    const missingTables = requiredTables.filter(
+      (table) => !existingTableNames.includes(table),
     );
 
     if (missingTables.length > 0) {
-      console.log(`    📋 Creating missing tables: ${missingTables.join(', ')}`);
-      
+      console.log(
+        `    📋 Creating missing tables: ${missingTables.join(", ")}`,
+      );
+
       // Recreate all tables to ensure consistency
       await createTenantSchemaWithTables(schemaName);
     } else {
       console.log(`    ✅ All required tables exist`);
     }
-
   } catch (error) {
     console.error(`    ❌ Error validating tables for ${schemaName}:`, error);
     throw error;
@@ -304,46 +312,50 @@ async function ensureSampleData(schemaName) {
     // Check if there's any data in main tables
     const clientsCountQuery = `SELECT COUNT(*) as count FROM "${schemaName}".clients`;
     const clientsResult = await prisma.$queryRawUnsafe(clientsCountQuery);
-    const clientsCount = parseInt(clientsResult[0]?.count || '0');
+    const clientsCount = parseInt(clientsResult[0]?.count || "0");
 
     if (clientsCount === 0) {
       console.log(`    📊 Adding sample data to ${schemaName}...`);
-      
+
       // Add sample categories individually
       const categoryInserts = [
         `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Consultoria', 'income', '#10B981', 'Serviços de consultoria jurídica', 'system') ON CONFLICT DO NOTHING`,
         `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Honorários', 'income', '#3B82F6', 'Honorários advocatícios', 'system') ON CONFLICT DO NOTHING`,
         `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Escritório', 'expense', '#EF4444', 'Despesas do escritório', 'system') ON CONFLICT DO NOTHING`,
-        `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Marketing', 'expense', '#F59E0B', 'Investimentos em marketing', 'system') ON CONFLICT DO NOTHING`
+        `INSERT INTO "${schemaName}".categories (name, type, color, description, created_by) VALUES ('Marketing', 'expense', '#F59E0B', 'Investimentos em marketing', 'system') ON CONFLICT DO NOTHING`,
       ];
-      
+
       for (const insert of categoryInserts) {
         await prisma.$executeRawUnsafe(insert);
       }
-      
+
       console.log(`    ✅ Sample categories added`);
     }
-
   } catch (error) {
-    console.warn(`    ⚠️  Could not add sample data to ${schemaName}:`, error.message);
+    console.warn(
+      `    ⚠️  Could not add sample data to ${schemaName}:`,
+      error.message,
+    );
   }
 }
 
 async function generateMigrationReport() {
   try {
-    console.log('\n📊 MIGRATION REPORT');
-    console.log('==================');
+    console.log("\n📊 MIGRATION REPORT");
+    console.log("==================");
 
     const tenants = await prisma.tenant.findMany({
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: "asc" },
     });
 
     for (const tenant of tenants) {
       console.log(`\n📋 Tenant: ${tenant.name}`);
       console.log(`   ID: ${tenant.id}`);
       console.log(`   Schema: ${tenant.schemaName}`);
-      console.log(`   Status: ${tenant.isActive ? '✅ Active' : '❌ Inactive'}`);
-      
+      console.log(
+        `   Status: ${tenant.isActive ? "✅ Active" : "❌ Inactive"}`,
+      );
+
       try {
         // Check schema exists
         const schemaCheckQuery = `
@@ -352,12 +364,15 @@ async function generateMigrationReport() {
             WHERE schema_name = $1
           ) as schema_exists
         `;
-        
-        const schemaResult = await prisma.$queryRawUnsafe(schemaCheckQuery, tenant.schemaName);
+
+        const schemaResult = await prisma.$queryRawUnsafe(
+          schemaCheckQuery,
+          tenant.schemaName,
+        );
         const schemaExists = schemaResult?.[0]?.schema_exists;
-        
-        console.log(`   Schema exists: ${schemaExists ? '✅ Yes' : '❌ No'}`);
-        
+
+        console.log(`   Schema exists: ${schemaExists ? "✅ Yes" : "❌ No"}`);
+
         if (schemaExists) {
           // Count tables
           const tablesQuery = `
@@ -365,33 +380,36 @@ async function generateMigrationReport() {
             FROM information_schema.tables 
             WHERE table_schema = $1
           `;
-          
-          const tablesResult = await prisma.$queryRawUnsafe(tablesQuery, tenant.schemaName);
+
+          const tablesResult = await prisma.$queryRawUnsafe(
+            tablesQuery,
+            tenant.schemaName,
+          );
           const tableCount = tablesResult?.[0]?.table_count || 0;
-          
+
           console.log(`   Tables: ${tableCount}`);
-          
+
           // Count users
           const users = await prisma.user.findMany({
             where: { tenantId: tenant.id },
-            select: { id: true, name: true, isActive: true }
+            select: { id: true, name: true, isActive: true },
           });
-          
+
           console.log(`   Users: ${users.length}`);
-          users.forEach(user => {
-            console.log(`     - ${user.name} (${user.isActive ? 'Active' : 'Inactive'})`);
+          users.forEach((user) => {
+            console.log(
+              `     - ${user.name} (${user.isActive ? "Active" : "Inactive"})`,
+            );
           });
         }
-        
       } catch (error) {
         console.log(`   ❌ Error checking tenant: ${error.message}`);
       }
     }
 
-    console.log('\n🎉 Migration report completed!');
-
+    console.log("\n🎉 Migration report completed!");
   } catch (error) {
-    console.error('Error generating migration report:', error);
+    console.error("Error generating migration report:", error);
   }
 }
 
@@ -399,11 +417,11 @@ async function generateMigrationReport() {
 if (require.main === module) {
   migrateExistingTenants()
     .then(() => {
-      console.log('✅ Migration script completed successfully');
+      console.log("✅ Migration script completed successfully");
       process.exit(0);
     })
     .catch((error) => {
-      console.error('❌ Migration script failed:', error);
+      console.error("❌ Migration script failed:", error);
       process.exit(1);
     });
 }

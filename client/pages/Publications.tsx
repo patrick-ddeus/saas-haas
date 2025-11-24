@@ -41,78 +41,19 @@ import {
   Scale,
 } from "lucide-react";
 import { Publication, PublicationStatus } from "@/types/publications";
+import { apiService } from "@/services/apiService";
 import { ProcessViewDialog } from "@/components/Publications/ProcessViewDialog";
 
-/**
- * DADOS MOCK - SERÃO SUBSTITUÍDOS POR API
- * ======================================
- *
- * IMPORTANTE PARA O BACKEND:
- *
- * ENDPOINT NECESSÁRIO: GET /api/publicacoes/carregar
- * - Busca novas publicações dos diários oficiais
- * - Retorna: Data Publicação, Processo, Diário, Vara/Comarca, Nome Pesquisado
- * - Todas as novas publicações devem vir com status: 'nova'
- * - Implementar filtros por data, comarca, etc.
- *
- * ENDPOINT: PATCH /api/publicacoes/{id}/status
- * - Atualiza status da publicação
- * - Usado para mudança automática NOVA -> PENDENTE ao visualizar
- */
-const mockPublications: Publication[] = [
-  {
-    id: "1",
-    dataPublicacao: new Date("2024-01-15"),
-    processo: "1001234-56.2024.8.26.0100",
-    diario: "Diário de Justiça Eletrônico",
-    varaComarca: "1ª Vara Cível - São Paulo/SP",
-    nomePesquisado: "João Silva Santos",
-    status: "nova", // Status inicial de publicações da API
-    conteudo: "Intimação para audiência de conciliação...",
-    urgencia: "alta",
-  },
-  {
-    id: "2",
-    dataPublicacao: new Date("2024-01-14"),
-    processo: "2001234-56.2024.8.26.0200",
-    diario: "Diário Oficial do Estado",
-    varaComarca: "2ª Vara Criminal - Rio de Janeiro/RJ",
-    nomePesquisado: "Maria Oliveira Costa",
-    status: "pendente", // Já foi visualizada
-    conteudo: "Sentença publicada nos autos...",
-    urgencia: "media",
-  },
-  {
-    id: "3",
-    dataPublicacao: new Date("2024-01-13"),
-    processo: "3001234-56.2024.8.26.0300",
-    diario: "Diário de Justiça Eletrônico",
-    varaComarca: "Vara de Família - Brasília/DF",
-    nomePesquisado: "Carlos Eduardo Lima",
-    status: "descartada",
-    conteudo: "Publicação não relacionada ao caso...",
-    urgencia: "baixa",
-  },
-  {
-    id: "4",
-    dataPublicacao: new Date("2024-01-12"),
-    processo: "4001234-56.2024.8.26.0400",
-    diario: "Diário de Justiça Eletrônico",
-    varaComarca: "3ª Vara Trabalhista - São Paulo/SP",
-    nomePesquisado: "Ana Paula Silva",
-    status: "atribuida",
-    conteudo: "Despacho do juiz...",
-    responsavel: "Dr. Silva",
-    urgencia: "alta",
-    atribuidoPara: {
-      id: "1",
-      nome: "Dr. Silva",
-      email: "silva@escritorio.com",
-      cargo: "Gerente",
-      ativo: true,
-    },
-  },
-];
+function mapBackendStatus(s: string | undefined): PublicationStatus {
+  if (!s) return 'nova';
+  const v = s.toLowerCase();
+  if (v === 'nova' || v === 'novo') return 'nova';
+  if (v === 'lido' || v === 'pendente') return 'pendente';
+  if (v === 'atribuida' || v === 'atribuído') return 'atribuida';
+  if (v === 'finalizada' || v === 'finalizado') return 'finalizada';
+  if (v === 'arquivado' || v === 'descartada') return 'descartada';
+  return 'nova';
+}
 
 const getStatusBadge = (status: PublicationStatus) => {
   const statusConfig = {
@@ -167,6 +108,7 @@ export function Publications() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [publications, setPublications] = useState<Publication[]>([]);
 
   // Estados para consulta de projetos
   const [oabNumber, setOabNumber] = useState("");
@@ -178,33 +120,45 @@ export function Publications() {
   const [showProcessDialog, setShowProcessDialog] = useState(false);
   const [viewingProcess, setViewingProcess] = useState<any>(null);
 
-  const handleViewPublication = (publication: Publication) => {
-    // BACKEND: Implementar mudança automática de status NOVA -> PENDENTE
-    if (publication.status === "nova") {
-      // Fazer PATCH /api/publicacoes/{id}/status para mudar para 'pendente'
-      console.log(
-        `Mudando status da publicação ${publication.id} de NOVA para PENDENTE`,
-      );
-    }
-    navigate(`/publicacoes/${publication.id}`);
+  const handleViewPublication = async (publication: Publication) => {
+    try {
+      if (publication.status === 'nova') {
+        await apiService.updatePublication(publication.id, { status: 'pendente' });
+      }
+      navigate(`/publicacoes/${publication.id}`);
+    } catch {}
+  };
+
+  const refreshPublications = async () => {
+    const params: any = {};
+    if (statusFilter !== 'all') params.status = statusFilter;
+    const data = await apiService.getPublications(params);
+    const list = Array.isArray(data.publications) ? data.publications : [];
+    const mapped: Publication[] = list.map((p: any) => ({
+      id: p.id,
+      dataPublicacao: new Date(p.publication_date),
+      processo: p.process_number || '',
+      diario: p.diario || '',
+      varaComarca: p.vara_comarca || '',
+      nomePesquisado: p.nome_pesquisado || '',
+      status: mapBackendStatus(p.status),
+      conteudo: p.content,
+      urgencia: (p.urgencia || 'media') as any,
+    }));
+    setPublications(mapped);
   };
 
   const handleLoadPublications = async () => {
     setIsLoading(true);
     try {
-      // BACKEND: Implementar chamada para API
-      // const response = await fetch('/api/publicacoes/carregar');
-      // const newPublications = await response.json();
-
-      console.log("Carregando novas publicações da API...");
-
-      // Simular carregamento
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // TODO: Atualizar estado com novas publicações
-      console.log("Publicações carregadas com sucesso!");
+      if (!oabNumber.trim() || !oabState.trim()) {
+        alert('Informe OAB e Estado para carregar publicações');
+        return;
+      }
+      await apiService.importCodiloPublications({ oabNumber, uf: oabState });
+      await refreshPublications();
     } catch (error) {
-      console.error("Erro ao carregar publicações:", error);
+      console.error('Erro ao carregar publicações:', error);
     } finally {
       setIsLoading(false);
     }
@@ -253,7 +207,11 @@ export function Publications() {
     }
   };
 
-  const filteredPublications = mockPublications.filter((pub) => {
+  React.useEffect(() => {
+    refreshPublications();
+  }, [statusFilter]);
+
+  const filteredPublications = publications.filter((pub) => {
     const matchesSearch =
       pub.processo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pub.nomePesquisado.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -264,63 +222,7 @@ export function Publications() {
     return matchesSearch && matchesStatus;
   });
 
-  // Dados mock de projetos para consulta
-  const mockProjectResults = [
-    {
-      id: "1",
-      numero: "PROJ-2025-001",
-      cliente: "LUAN SANTOS MELO",
-      vara: "1ª Vara Cível - São Paulo/SP",
-      status: "Em Andamento",
-      ultimaMovimentacao: "Análise documental em progresso",
-      dataUltimaMovimentacao: new Date("2025-01-21"),
-      advogado: "123456/SP",
-      tipo: "Ação Trabalhista",
-      valor: "R$ 45.000,00",
-    },
-    {
-      id: "2",
-      numero: "PROJ-2025-002",
-      cliente: "LUIZ ANSELMO",
-      vara: "2ª Vara Trabalhista - São Paulo/SP",
-      status: "Aguardando Documentos",
-      ultimaMovimentacao: "Solicitação de documentos complementares",
-      dataUltimaMovimentacao: new Date("2025-01-20"),
-      advogado: "123456/SP",
-      tipo: "Revisão Contratual",
-      valor: "R$ 28.500,00",
-    },
-  ];
-
-  // Dados mock de projetos arquivados
-  const mockArchivedProjects = [
-    {
-      id: "arch1",
-      numero: "PROJ-2024-089",
-      cliente: "EDSON DE ANDRADE CARVALHO",
-      vara: "3ª Vara Cível - Rio de Janeiro/RJ",
-      status: "Finalizado",
-      ultimaMovimentacao: "Projeto concluído com sucesso",
-      dataUltimaMovimentacao: new Date("2024-12-15"),
-      advogado: "123456/SP",
-      tipo: "Consultoria Empresarial",
-      valor: "R$ 65.000,00",
-      dataArquivamento: new Date("2024-12-20"),
-    },
-    {
-      id: "arch2",
-      numero: "PROJ-2024-067",
-      cliente: "LIZIANO LEITE DE AZEVEDO",
-      vara: "Vara de Família - Brasília/DF",
-      status: "Finalizado",
-      ultimaMovimentacao: "Acordo homologado",
-      dataUltimaMovimentacao: new Date("2024-11-28"),
-      advogado: "123456/SP",
-      tipo: "Mediação Familiar",
-      valor: "R$ 18.000,00",
-      dataArquivamento: new Date("2024-12-05"),
-    },
-  ];
+  
 
   const handleSearchProcesses = async () => {
     if (!oabNumber.trim() || !oabState.trim()) {
@@ -332,26 +234,22 @@ export function Publications() {
     setHasSearched(false);
 
     try {
-      // BACKEND: Implementar consulta real
-      // const response = await fetch(`/api/processos/consultar?oab=${oabNumber}&estado=${oabState}`);
-      // const processes = await response.json();
-
-      // Simular tempo de consulta
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Filtrar projetos mock baseado na OAB (simulação)
-      const searchQuery = `${oabNumber}/${oabState}`;
-      const filteredResults = mockProjectResults.filter(
-        (project) => project.advogado === searchQuery,
-      );
-
-      setSearchResults(filteredResults);
+      const data = await apiService.searchCodiloProcesses({ oabNumber, uf: oabState });
+      const results = Array.isArray(data.results) ? data.results : [];
+      const mapped = results.map((r: any) => ({
+        id: String(r.id || r.codigo || Math.random()),
+        numero: r.numero || r.cnj || r.codigo_cnj || '',
+        cliente: r.cliente || r.parte || '',
+        vara: r.vara || r.comarca || '',
+        status: r.status || 'Em Andamento',
+        ultimaMovimentacao: r.ultima_movimentacao || '',
+        dataUltimaMovimentacao: r.data_ultima_movimentacao ? new Date(r.data_ultima_movimentacao) : undefined,
+        advogado: `${oabNumber}/${oabState}`,
+        tipo: r.classe || '',
+        valor: r.valor || '',
+      }));
+      setSearchResults(mapped);
       setHasSearched(true);
-
-      console.log(
-        `Consulta realizada para OAB: ${searchQuery}`,
-        filteredResults,
-      );
     } catch (error) {
       console.error("Erro ao consultar processos:", error);
       alert("Erro ao consultar processos. Tente novamente.");
@@ -432,7 +330,7 @@ export function Publications() {
 
   // Carregar projetos arquivados na inicialização
   React.useEffect(() => {
-    setArchivedProjects(mockArchivedProjects);
+    setArchivedProjects([]);
   }, []);
 
   return (

@@ -104,7 +104,7 @@ export function useTransactions(initialOptions: UseTransactionsOptions = {}): Us
         notes: t.notes,
         isRecurring: t.is_recurring || false,
         recurringFrequency: t.recurring_frequency,
-        createdBy: t.created_by,
+        createdBy: t.created_by_name || t.created_by,
         lastModifiedBy: t.last_modified_by,
         isActive: t.is_active !== false,
         createdAt: t.created_at,

@@ -42,7 +42,7 @@ const clientSchema = z.object({
   city: z.string().min(1, 'Cidade é obrigatória'),
   zipCode: z.string().optional(),
   budget: z.number().min(0, 'Orçamento deve ser positivo').optional(),
-  currency: z.enum(['BRL', 'USD', 'EUR']),
+  currency: z.enum([ 'BRL', 'USD', 'EUR' ]),
   level: z.string().optional(),
   description: z.string().optional(),
   pis: z.string().optional(),
@@ -91,24 +91,25 @@ const inssStatuses = [
 ];
 
 export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = false, existingTags = [] }: ClientFormProps) {
-  const [tags, setTags] = React.useState<string[]>(client?.tags || []);
-  const [newTag, setNewTag] = React.useState('');
-  const [selectedExistingTag, setSelectedExistingTag] = React.useState('');
+  console.log("🚀 ~ ClientForm ~ client:", client)
+  const [ tags, setTags ] = React.useState<string[]>(client?.tags || []);
+  const [ newTag, setNewTag ] = React.useState('');
+  const [ selectedExistingTag, setSelectedExistingTag ] = React.useState('');
 
   // FUNCIONALIDADE: Upload de arquivos para cliente
   // Sistema de planos futuros:
   // - Plano Básico: 1 arquivo por cliente
   // - Plano Intermediário: 2 arquivos por cliente
   // - Plano Premium: arquivos ilimitados por cliente
-  const [clientFiles, setClientFiles] = React.useState<File[]>([]);
-  const [fileError, setFileError] = React.useState<string | null>(null);
+  const [ clientFiles, setClientFiles ] = React.useState<File[]>([]);
+  const [ fileError, setFileError ] = React.useState<string | null>(null);
   const MAX_FILES_BY_PLAN = 3; // Temporário - será dinâmico baseado no plano
 
   // Atualizar tags quando client mudar
   React.useEffect(() => {
     setTags(client?.tags || []);
     setSelectedExistingTag(''); // Reset dropdown quando trocar cliente
-  }, [client]);
+  }, [ client ]);
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -172,8 +173,30 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
         // IMPLEMENTAÇÃO FUTURA: Pegar usuário atual logado
         registeredBy: client.registeredBy || 'Dr. Advogado', // Será currentUser.name
       });
+    } else {
+      form.reset({
+        address: '',
+        city: '',
+        zipCode: '',
+        budget: 0,
+        currency: 'BRL',
+        level: '',
+        description: '',
+        pis: '',
+        cei: '',
+        professionalTitle: '',
+        maritalStatus: '',
+        birthDate: '',
+        cpf: '',
+        rg: '',
+        inssStatus: '',
+        amountPaid: 0,
+        referredBy: '',
+        registeredBy: 'Dr. Advogado', // Será currentUser.name
+
+      })
     }
-  }, [client, form]);
+  }, [ client, form ]);
 
   const handleSubmit = (data: ClientFormData) => {
     onSubmit({ ...data });
@@ -185,7 +208,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
 
   const addTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
+      setTags([ ...tags, newTag.trim() ]);
       setNewTag('');
     }
   };
@@ -196,7 +219,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
 
   const addExistingTag = (tag: string) => {
     if (!tags.includes(tag)) {
-      setTags([...tags, tag]);
+      setTags([ ...tags, tag ]);
       setSelectedExistingTag(''); // Reset dropdown selection
     }
   };
@@ -212,7 +235,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
     }
 
     // Verificar tipos de arquivo permitidos
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+    const allowedTypes = [ 'image/png', 'image/jpeg', 'image/jpg', 'application/pdf' ];
     const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
 
     if (invalidFiles.length > 0) {
@@ -227,7 +250,7 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
       return;
     }
 
-    setClientFiles([...clientFiles, ...files]);
+    setClientFiles([ ...clientFiles, ...files ]);
     setFileError(null);
   };
 
@@ -239,9 +262,9 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [ 'Bytes', 'KB', 'MB', 'GB' ];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[ i ];
   };
 
   return (
@@ -406,9 +429,9 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
                     <FormItem>
                       <FormLabel>Orçamento</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="0.00" 
+                        <Input
+                          type="number"
+                          placeholder="0.00"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
@@ -588,9 +611,9 @@ export function ClientForm({ open, onOpenChange, client, onSubmit, isEditing = f
                     <FormItem>
                       <FormLabel>Valor Pago (R$)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="0.00" 
+                        <Input
+                          type="number"
+                          placeholder="0.00"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />

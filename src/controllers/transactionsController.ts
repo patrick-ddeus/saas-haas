@@ -14,14 +14,14 @@ import { transactionsService } from '../services/transactionsService';
 
 // Validation schemas
 const createTransactionSchema = z.object({
-  type: z.enum(['income', 'expense']),
+  type: z.enum([ 'income', 'expense' ]),
   amount: z.number().min(0.01, 'Amount must be greater than zero'),
   categoryId: z.string().min(1, 'Category is required'),
   category: z.string().min(1, 'Category name is required'),
   description: z.string().min(1, 'Description is required'),
   date: z.string().min(1, 'Date is required'),
-  paymentMethod: z.enum(['pix', 'credit_card', 'debit_card', 'bank_transfer', 'boleto', 'cash', 'check']).optional(),
-  status: z.enum(['pending', 'confirmed', 'cancelled']).default('confirmed'),
+  paymentMethod: z.enum([ 'pix', 'credit_card', 'debit_card', 'bank_transfer', 'boleto', 'cash', 'check' ]).optional(),
+  status: z.enum([ 'pending', 'confirmed', 'cancelled' ]).default('confirmed'),
   projectId: z.string().optional(),
   projectTitle: z.string().optional(),
   clientId: z.string().optional(),
@@ -29,7 +29,7 @@ const createTransactionSchema = z.object({
   tags: z.array(z.string()).default([]),
   notes: z.string().optional(),
   isRecurring: z.boolean().default(false),
-  recurringFrequency: z.enum(['monthly', 'quarterly', 'yearly']).optional(),
+  recurringFrequency: z.enum([ 'monthly', 'quarterly', 'yearly' ]).optional(),
 });
 
 const updateTransactionSchema = createTransactionSchema.partial();
@@ -73,7 +73,7 @@ export class TransactionsController {
         status: status as string | undefined,
         categoryId: categoryId as string | undefined,
         search: search as string | undefined,
-        tags: tags ? (Array.isArray(tags) ? tags as string[] : [tags as string]) : undefined,
+        tags: tags ? (Array.isArray(tags) ? tags as string[] : [ tags as string ]) : undefined,
         projectId: projectId as string | undefined,
         clientId: clientId as string | undefined,
         dateFrom: dateFrom as string | undefined,
@@ -152,7 +152,7 @@ export class TransactionsController {
       console.log('✅ Data validated successfully');
 
       console.log('✅ Creating transaction via service...');
-       // @ts-expect-error - accountType é opcional no schema, mas é necessário para criação
+      // @ts-expect-error - accountType é opcional no schema, mas é necessário para criação
       const transaction = await transactionsService.createTransaction(req.tenantDB, validatedData, req.user.id);
       console.log('✅ Transaction created:', transaction.id);
 
@@ -238,6 +238,85 @@ export class TransactionsController {
         error: 'Failed to delete transaction',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
+    }
+  }
+
+  async getStats(req: TenantRequest, res: Response) {
+    try {
+      if (!req.user || !req.tenantDB) return res.status(401).json({ error: 'Authentication required' });
+      if (req.user.accountType === 'SIMPLES') return res.status(403).json({ error: 'Access denied' });
+      const { dateFrom, dateTo } = req.query as any;
+      const stats = await transactionsService.getTransactionsStats(req.tenantDB, dateFrom, dateTo);
+      res.json({ stats });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get stats', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
+  async getByCategory(req: TenantRequest, res: Response) {
+    try {
+      if (!req.user || !req.tenantDB) return res.status(401).json({ error: 'Authentication required' });
+      if (req.user.accountType === 'SIMPLES') return res.status(403).json({ error: 'Access denied' });
+      const { type, dateFrom, dateTo } = req.query as any;
+      const rows = await transactionsService.getTransactionsByCategory(req.tenantDB, type, dateFrom, dateTo);
+      res.json({ rows });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get category report', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
+  async listRecurring(req: TenantRequest, res: Response) {
+    try {
+      if (!req.user || !req.tenantDB) return res.status(401).json({ error: 'Authentication required' });
+      if (req.user.accountType === 'SIMPLES') return res.status(403).json({ error: 'Access denied' });
+      const rows = await transactionsService.getRecurringTransactionsDue(req.tenantDB);
+      res.json({ rows });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch recurring', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
+  async runRecurring(req: TenantRequest, res: Response) {
+    try {
+      if (!req.user || !req.tenantDB) return res.status(401).json({ error: 'Authentication required' });
+      if (req.user.accountType === 'SIMPLES') return res.status(403).json({ error: 'Access denied' });
+      const rows = await transactionsService.getRecurringTransactionsDue(req.tenantDB);
+      const created: string[] = [];
+      const today = new Date();
+      for (const t of rows) {
+        const lastDate = new Date(t.date);
+        let nextDate = new Date(lastDate);
+        const freq = (t.recurring_frequency || 'monthly').toLowerCase();
+        if (freq === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+        else if (freq === 'quarterly') nextDate.setMonth(nextDate.getMonth() + 3);
+        else if (freq === 'yearly') nextDate.setFullYear(nextDate.getFullYear() + 1);
+
+        if (nextDate <= today) {
+          const payload: any = {
+            type: t.type,
+            amount: Number(t.amount),
+            categoryId: t.category_id,
+            category: t.category,
+            description: t.description,
+            date: nextDate.toISOString().slice(0, 10),
+            paymentMethod: t.payment_method as any,
+            status: 'confirmed',
+            projectId: t.project_id || undefined,
+            projectTitle: t.project_title || undefined,
+            clientId: t.client_id || undefined,
+            clientName: t.client_name || undefined,
+            tags: Array.isArray(t.tags) ? t.tags : [],
+            notes: t.notes || undefined,
+            isRecurring: true,
+            recurringFrequency: t.recurring_frequency as any,
+          };
+          const newT = await transactionsService.createTransaction(req.tenantDB, payload, req.user.id);
+          created.push(newT.id);
+        }
+      }
+      res.json({ createdCount: created.length, createdIds: created });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to run recurring', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 }
