@@ -10,6 +10,10 @@ export interface AuthenticatedRequest extends Request {
     name: string;
     role?: string;
   };
+  body: any;
+  query: any;
+  params: any;
+  headers: any;
   tenantId?: string;
 }
 
