@@ -13,6 +13,10 @@ export interface AuthenticatedRequest extends Request {
     role?: string;
   };
   tenantId?: string;
+  body: any;
+  query: any;
+  params: any;
+  headers: any
   tenantDB?: TenantDatabase
 }
 

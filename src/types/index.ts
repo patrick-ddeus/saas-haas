@@ -23,6 +23,9 @@ export interface TenantRequest extends Request {
     name: string;
     isActive: boolean;
   };
+  body: any;
+  query: any;
+  params: any;
   tenantDB?: TenantDatabase; // ✅ CRÍTICO: Usado para isolamento de dados
 }
 
